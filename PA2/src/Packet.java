@@ -3,7 +3,7 @@ import java.security.MessageDigest;
 											//FIGURE OUT WHICH METHODS ARE ACTUALLY NEEDED
 public class Packet {
 	
-	//instance variables of header components
+	//instance variables of header components//
 	private int sessionID;
 	private int seqNum;
 	private int ackNum;
