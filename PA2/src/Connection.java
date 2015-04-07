@@ -3,12 +3,37 @@ import java.net.*;
 public class Connection {
 
 	//instance variables for a connection object
+	private boolean isActive;
 	private int sessionID;
 	private int seqNum;
 	private int ackNum;
 	private InetAddress address;
 	private int port;
+	private short rcvWind;
 	private byte[] buffer;				//CHECK SIZE AND TYPE OF THIS VARIABLE
+
+	/*public Connection(boolean active, InetAddress addr, int port) {
+		this.isActive = active;
+		this.address = addr;
+		this.port = port;
+	}*/
+
+	/**
+	 * set active value
+	 * @param active value to set
+	 */
+	public void setActive(boolean active) {
+		this.isActive = active;
+	}
+
+	/**
+	 * get whether or not connection is active
+	 * @return active bit
+	 */
+	public boolean getActive() {
+		return this.isActive;
+	}
+	
 
 	/**
 	 * set session ID
@@ -94,6 +119,22 @@ public class Connection {
 	 */
 	public int getPort() {
 		return this.port;
+	}
+
+	/**
+	 * set receive window
+	 * @param rWind new window size
+	 */
+	public void setRcvWind(short rWind) {
+		this.rcvWind = rWind;
+	}
+
+	/**
+	 * get receive window size
+	 * @return receive window size
+	 */
+	public short getRcvWind() {
+		return this.rcvWind;
 	}
 
 	/**
