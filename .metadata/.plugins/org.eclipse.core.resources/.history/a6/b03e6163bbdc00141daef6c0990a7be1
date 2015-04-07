@@ -22,14 +22,14 @@ public class client {
 		if (receivedResponse) {
 			byte[] rcvData = SYNACKrcvPacket.getData();
 			byte checkVal = (byte) 1;
-			if ((rcvData[15] == checkVal) && (rcvData[16] == checkVal)) { // if SYNACK is received
+			if ((rcvData[15] == checkVal) && (rcvData[16] == checkVal)) {
 				Packet ACKDataPacket = new Packet(0, rand.nextInt(), 0, (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 1, rcvWind, new byte[0]);
 				DatagramPacket ACKpacket = new DatagramPacket(ACKDataPacket.toArray(), ACKDataPacket.toArray().length, address, port);
 				DatagramPacket ACKrcvPacket = new DatagramPacket(new byte[ACKDataPacket.toArray().length], ACKDataPacket.toArray().length);
 				
 				receivedResponse = trySend(socket, ACKpacket, ACKrcvPacket, address);
 				
-				if (receivedResponse) { // if ACK is received
+				if (receivedResponse) {
 					byte[] rcvData2 = ACKrcvPacket.getData();
 					checkVal = (byte) 1;
 					if (rcvData2[16] == checkVal) {
