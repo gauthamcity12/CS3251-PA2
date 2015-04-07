@@ -75,7 +75,7 @@ public class client {
 	}
 
 	//CHECK SEQ/ACK NUMS and MD5
-	public boolean close(int ID, DatagramSocket socket) {	//HANDLE SIMULTANEOUS CLOSE SEQUENCES???
+	public boolean close(int ID, DatagramSocket socket) {	
 		Connection conn = connections.get(ID);
 		InetAddress address = conn.getAddress();
 		int port = conn.getPort();

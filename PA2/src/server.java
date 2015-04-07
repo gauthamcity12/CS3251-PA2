@@ -1,9 +1,12 @@
 import java.net.*;
+import java.util.HashMap;
 import java.util.Random;
 import java.io.*;
 import java.util.*;
 
 public class server {
+	
+	private static HashMap<Integer, Connection> connections = new HashMap<>(5);
 	private static short rcvWind;	
 	private static final int TIMEOUT = 3000;
 	private static final int MAXTRIES = 5;
@@ -95,6 +98,37 @@ public class server {
 			}
 		} while ((!receivedResponse) && (tries < MAXTRIES));
 		return receivedResponse;
+	}
+	
+	public int send(){
+		return 0;
+	}
+	
+	public int receive(){
+		return 0;
+	}
+	
+	public boolean close(int ID, DatagramSocket socket){ // FIN has been received first
+		Connection conn = connections.get(ID);
+		InetAddress address = conn.getAddress();
+		int port = conn.getPort();
+		
+		Packet FINACKDataPacket = new Packet(ID, conn.getSeqNum(), conn.getAckNum(), (byte) 0, (byte) 0, (byte) 1, (byte) 0, (byte) 1, rcvWind, new byte[0]);
+		DatagramPacket FINACKpacket = new DatagramPacket(FINACKDataPacket.toArray(), FINACKDataPacket.toArray().length, address, port);
+		DatagramPacket ACKrcvPacket = new DatagramPacket(new byte[FINACKDataPacket.toArray().length], FINACKDataPacket.toArray().length);
+	
+		boolean receivedResponse = trySend(socket, FINACKpacket, ACKrcvPacket, address);
+		if(receivedResponse){ // if ACK packet received
+			byte[] rcvData = ACKrcvPacket.getData();
+			byte checkVal = (byte) 1;
+			if(rcvData[16]==checkVal){
+				// Terminate connection
+				socket.close();
+				System.out.println("Session Finished");
+				return true;
+			}
+		}
+		return false;
 	}
 	
 }
