@@ -6,14 +6,59 @@ import java.util.*;
 
 public class server {
 	
-	private static HashMap<Integer, Connection> connections = new HashMap<>(5);
-	private static short rcvWind;	
+	private static  Connection connection; //HashMap<Integer, Connection> connections = new HashMap<>(5);			//THIS MAY NEED TO BE 1 CONNECTION!!!
+	//private static short rcvWind;	
 	private static final int TIMEOUT = 3000;
 	private static final int MAXTRIES = 5;
 	private static Random rand = new Random();
+
+	public static void main(String[] args) {
+		if (args.length != 4) {
+			System.out.println("Incorrect number of arguments.  Please enter arguments as\nFxA-server <src port> <dst IP> <dst port>");
+			System.exit(1);
+		}
+
+		int ownPort = -1;
+		InetAddress clientIP = null;
+		int clientPort = -1;
+
+		try {
+			ownPort = Integer.parseInt(args[1]);
+		} catch (NumberFormatException n) {
+			System.out.println("Port number must be an int.");
+			System.exit(1);
+		}
+		
+		try {
+			clientIP = InetAddress.getByName(args[2]);
+		} catch (UnknownHostException u) {
+			System.out.println("Destination IP address was improperly formatted.");
+			System.exit(1);
+		}
+
+		try {
+			clientPort = Integer.parseInt(args[3]);
+		} catch (NumberFormatException n2) {
+			System.out.println("Port number must be an int.");
+			System.exit(1);
+		}
+		
+		try {
+			DatagramSocket socket = new DatagramSocket(ownPort);		//NEED TO INCLUDE IP ADDRESS???  
+		} catch (SocketException s) {
+			System.out.println("Couldn not create socket.");
+			System.exit(1);
+		}
+
+		System.out.println("Server binding to " + ownPort + " and sending to " + clientIP + ":" + clientPort);
+		
+		//FINISH MAIN METHOD CODE HERE
+	}
+
+
 	
-	public boolean connect(InetAddress address, int port, DatagramSocket socket){
-		Packet SYNACKDataPacket = new Packet(0, rand.nextInt(), 0, (byte) 0, (byte) 0, (byte) 0, (byte) 1, (byte) 1, rcvWind, new byte[0]);
+	public static boolean connect(InetAddress address, int port, DatagramSocket socket){
+		Packet SYNACKDataPacket = new Packet(0, rand.nextInt(), 0, (byte) 0, (byte) 0, (byte) 0, (byte) 1, (byte) 1, (short) 32000, new byte[0]);
 		DatagramPacket SYNrcvPacket = new DatagramPacket(new byte[SYNACKDataPacket.toArray().length], SYNACKDataPacket.toArray().length);
 		DatagramPacket SYNACKPacket = new DatagramPacket(SYNACKDataPacket.toArray(), SYNACKDataPacket.toArray().length, address, port);
 		
@@ -22,15 +67,17 @@ public class server {
 			byte[] rcvData = SYNrcvPacket.getData();
 			byte checkVal = (byte) 1;
 			if (rcvData[15] == checkVal) { // if SYN is received
-				Packet ACKDataPacket = new Packet(0, rand.nextInt(), 0, (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 1, rcvWind, new byte[0]);
+				Packet ACKDataPacket = new Packet(0, rand.nextInt(), 0, (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 1, (short) 32000, new byte[0]);
 				DatagramPacket ACKrcvPacket = new DatagramPacket(new byte[ACKDataPacket.toArray().length], ACKDataPacket.toArray().length);
 				
 				receivedResponse = trySend(socket, SYNACKPacket, ACKrcvPacket, address);
 				if(receivedResponse){ // if ACK is received
 					byte[] rcvData2 = ACKrcvPacket.getData();
 					checkVal = (byte) 1;
-					if(rcvData[16] == checkVal){
-						return true;
+					if(rcvData2[16] == checkVal){
+						Packet ACKDataPacket2 = new Packet(0, rand.nextInt(), 0, (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 1, (short) 32000, new byte[0]);
+						DatagramPacket ACKPacket = new DatagramPacket(new byte[ACKDataPacket2.toArray().length], ACKDataPacket2.toArray().length);
+						return trySend(socket, ACKPacket, address);
 					}
 				}
 			}
@@ -41,29 +88,20 @@ public class server {
 	
 	}
 	
-	private boolean tryReceive(DatagramSocket socket, DatagramPacket rcvP, InetAddress address) {
-		boolean receivedResponse = false;
-		int tries = 0;
-		do {
-			try {
-				socket.setSoTimeout(TIMEOUT);
-				//socket.send(sendP);
-				socket.receive(rcvP);
-				if (!rcvP.getAddress().equals(address)) { //Check source for received packet
-					throw new IOException("Received packet was from unknown source");
-				}
-				receivedResponse = true;
-			} catch (InterruptedIOException e) {
-				tries += 1;
-				System.out.println("Timed out, " + (MAXTRIES - tries) + " more tries.");
-			} catch (Exception f) {
-				return false;
+	private static boolean tryReceive(DatagramSocket socket, DatagramPacket rcvP, InetAddress address) {
+		try {
+			socket.receive(rcvP);
+			if (!rcvP.getAddress().equals(address)) { //Check source for received packet
+				throw new IOException("Received packet was from unknown source");
 			}
-		} while ((!receivedResponse) && (tries < MAXTRIES));
-		return receivedResponse;
+			return true;
+		} catch (Exception f) {
+			System.out.println("There was a problem receiving: " + f);
+			return false;
+		}
 	}
 	
-	private boolean trySend(DatagramSocket socket, DatagramPacket sendP, DatagramPacket rcvP, InetAddress address) {
+	private static boolean trySend(DatagramSocket socket, DatagramPacket sendP, DatagramPacket rcvP, InetAddress address) {
 		boolean receivedResponse = false;
 		int tries = 0;
 		do {
@@ -85,7 +123,7 @@ public class server {
 		return receivedResponse;
 	}
 	
-	private boolean trySend(DatagramSocket socket, DatagramPacket sendP, InetAddress address) {
+	private static boolean trySend(DatagramSocket socket, DatagramPacket sendP, InetAddress address) {
 		boolean receivedResponse = false;
 		int tries = 0;
 		do {
@@ -108,27 +146,41 @@ public class server {
 		return 0;
 	}
 	
-	public boolean close(int ID, DatagramSocket socket){ // FIN has been received first
-		Connection conn = connections.get(ID);
-		InetAddress address = conn.getAddress();
-		int port = conn.getPort();
-		
-		Packet FINACKDataPacket = new Packet(ID, conn.getSeqNum(), conn.getAckNum(), (byte) 0, (byte) 0, (byte) 1, (byte) 0, (byte) 1, rcvWind, new byte[0]);
-		DatagramPacket FINACKpacket = new DatagramPacket(FINACKDataPacket.toArray(), FINACKDataPacket.toArray().length, address, port);
-		DatagramPacket ACKrcvPacket = new DatagramPacket(new byte[FINACKDataPacket.toArray().length], FINACKDataPacket.toArray().length);
-	
-		boolean receivedResponse = trySend(socket, FINACKpacket, ACKrcvPacket, address);
-		if(receivedResponse){ // if ACK packet received
-			byte[] rcvData = ACKrcvPacket.getData();
-			byte checkVal = (byte) 1;
-			if(rcvData[16]==checkVal){
-				// Terminate connection
-				socket.close();
-				System.out.println("Session Finished");
-				return true;
+	//CHECK SEQ/ACK NUMS and MD5
+		public static boolean close(int ID, DatagramSocket socket) {	
+			InetAddress address = connection.getAddress();
+			int port = connection.getPort();
+			
+			Packet FINDataPacket = new Packet(ID, connection.getSeqNum(), connection.getAckNum(), (byte) 0, (byte) 0, (byte) 1, (byte) 0, (byte) 0, connection.getRcvWind(), new byte[0]);
+			DatagramPacket FINpacket = new DatagramPacket(FINDataPacket.toArray(), FINDataPacket.toArray().length, address, port);
+			DatagramPacket rcvPacket = new DatagramPacket(new byte[FINDataPacket.toArray().length], FINDataPacket.toArray().length);
+			
+			boolean receivedResponse = trySend(socket, FINpacket, rcvPacket, address);
+			
+			if (receivedResponse) {
+				byte[] rcvData = rcvPacket.getData();
+				byte checkVal = (byte) 1;
+				if (rcvData[16] == checkVal) {
+					if (rcvData[14] == checkVal) {
+						//send final ack
+						return true;
+					} else {
+						rcvPacket = new DatagramPacket(new byte[FINDataPacket.toArray().length], FINDataPacket.toArray().length);
+						try {
+							socket.receive(rcvPacket);
+							if (!rcvPacket.getAddress().equals(address)) { //Check source for received packet
+								throw new IOException("Received packet was from unknown source");
+							}
+						} catch (Exception f) {
+							return false;
+						}
+						if (rcvData[14] == checkVal) {
+							//send final ack
+							return true;
+						}
+					}
+				}
 			}
+			return false;
 		}
-		return false;
-	}
-	
 }
