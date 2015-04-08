@@ -6,7 +6,7 @@ import java.util.*;
 
 public class server {
 	
-	private static  Connection connection; //HashMap<Integer, Connection> connections = new HashMap<>(5);			//THIS MAY NEED TO BE 1 CONNECTION!!!
+	private Connection connection; //HashMap<Integer, Connection> connections = new HashMap<>(5);			//THIS MAY NEED TO BE 1 CONNECTION!!!
 	//private static short rcvWind;	
 	private static final int TIMEOUT = 3000;
 	private static final int MAXTRIES = 5;
@@ -18,6 +18,8 @@ public class server {
 			System.exit(1);
 		}
 
+		server serverUser = new server();
+		
 		int ownPort = -1;
 		InetAddress clientIP = null;
 		int clientPort = -1;
@@ -56,28 +58,38 @@ public class server {
 	}
 
 
+	public server() {
+		//do nothing
+	}
 	
-	public static boolean connect(InetAddress address, int port, DatagramSocket socket){
-		Packet SYNACKDataPacket = new Packet(0, rand.nextInt(), 0, (byte) 0, (byte) 0, (byte) 0, (byte) 1, (byte) 1, (short) 32000, new byte[0]);
+	public boolean connect(InetAddress address, int port, DatagramSocket socket){
+		int session2 = rand.nextInt();
+		Packet SYNACKDataPacket = new Packet(0, session2, 0, (byte) 0, (byte) 0, (byte) 0, (byte) 1, (byte) 1, 32000, new byte[0]);
 		DatagramPacket SYNrcvPacket = new DatagramPacket(new byte[SYNACKDataPacket.toArray().length], SYNACKDataPacket.toArray().length);
-		DatagramPacket SYNACKPacket = new DatagramPacket(SYNACKDataPacket.toArray(), SYNACKDataPacket.toArray().length, address, port);
 		
 		boolean receivedResponse = tryReceive(socket, SYNrcvPacket, address);
-		if(receivedResponse){ 
+		
+		if ((receivedResponse) && (verifyAck(SYNrcvPacket).getAckNum() == 0)) { 
+			int session1 = verifyAck(SYNrcvPacket).getSeqNum();
 			byte[] rcvData = SYNrcvPacket.getData();
 			byte checkVal = (byte) 1;
 			if (rcvData[15] == checkVal) { // if SYN is received
-				Packet ACKDataPacket = new Packet(0, rand.nextInt(), 0, (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 1, (short) 32000, new byte[0]);
-				DatagramPacket ACKrcvPacket = new DatagramPacket(new byte[ACKDataPacket.toArray().length], ACKDataPacket.toArray().length);
+				SYNACKDataPacket.setAckNum(session1);
+				DatagramPacket SYNACKPacket = new DatagramPacket(SYNACKDataPacket.toArray(), SYNACKDataPacket.toArray().length, address, port);
+				DatagramPacket ACKrcvPacket = new DatagramPacket(new byte[SYNACKDataPacket.toArray().length], SYNACKDataPacket.toArray().length);
 				
 				receivedResponse = trySend(socket, SYNACKPacket, ACKrcvPacket, address);
-				if(receivedResponse){ // if ACK is received
+				if ((receivedResponse) && (verifyAck(ACKrcvPacket).getAckNum() == session2)) { // if ACK is received
 					byte[] rcvData2 = ACKrcvPacket.getData();
 					checkVal = (byte) 1;
 					if(rcvData2[16] == checkVal){
-						Packet ACKDataPacket2 = new Packet(0, rand.nextInt(), 0, (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 1, (short) 32000, new byte[0]);
+						Packet ACKDataPacket2 = new Packet(0, session2 + 1, verifyAck(ACKrcvPacket).getSeqNum(), (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 1, 32000, new byte[0]);
 						DatagramPacket ACKPacket = new DatagramPacket(new byte[ACKDataPacket2.toArray().length], ACKDataPacket2.toArray().length);
-						return trySend(socket, ACKPacket, address);
+						if (trySend(socket, ACKPacket, address)) {
+							this.connection = new Connection(session1 + session2, session2 + 2, session1 + 1, address, port);
+							System.out.println("Connection successful!");
+							return true;
+						}
 					}
 				}
 			}
@@ -85,7 +97,10 @@ public class server {
 		socket.close();
 		System.out.println("Socket connection failed!");
 		return false;
-	
+	}
+
+	private static Packet verifyAck(DatagramPacket pack) {
+		return new Packet(pack.getData());
 	}
 	
 	private static boolean tryReceive(DatagramSocket socket, DatagramPacket rcvP, InetAddress address) {
@@ -147,7 +162,7 @@ public class server {
 	}
 	
 	//CHECK SEQ/ACK NUMS and MD5
-		public static boolean close(int ID, DatagramSocket socket) {	
+		public boolean close(int ID, DatagramSocket socket) {	
 			InetAddress address = connection.getAddress();
 			int port = connection.getPort();
 			

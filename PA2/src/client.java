@@ -6,8 +6,7 @@ import java.util.*;
 public class client {
 
 
-	private static Connection connection; //HashMap<Integer, Connection> connections = new HashMap<>(5);
-	//private static short rcvWind;					//WHAT ARE WE DOING HERE?
+	private Connection connection; //HashMap<Integer, Connection> connections = new HashMap<>(5);
 	private static final int TIMEOUT = 3000;
 	private static final int MAXTRIES = 5;
 	private static Random rand = new Random();
@@ -18,6 +17,8 @@ public class client {
 			System.exit(1);
 		}
 
+		client clientUser = new client();
+		
 		int ownPort = -1;
 		InetAddress serverIP = null;
 		int serverPort = -1;
@@ -54,7 +55,7 @@ public class client {
 		System.out.println("Client binding to " + ownPort + " and sending to " + serverIP + ":" + serverPort);
 
 		//connect to server
-		if (connect(serverIP, serverPort, socket)) {
+		if (clientUser.connect(serverIP, serverPort, socket)) {
 			System.out.println("Successfully connected to server application.");
 		} else {
 			System.out.println("Could not connect to server application. Please try again.");
@@ -70,30 +71,36 @@ public class client {
 
 	
 	
+	public client() {
+		//do nothing;
+	}
 	
 	//CHECK SEQ/ACK NUMS and MD5
-	public static boolean connect(InetAddress address, int port, DatagramSocket socket) { //HANDLE SIMULTANEOUS SYN PACKETS?
-		Packet SYNDataPacket = new Packet(0, rand.nextInt(), 0, (byte) 0, (byte) 0, (byte) 0, (byte) 1, (byte) 0, (short) 32000, new byte[0]);
+	public boolean connect(InetAddress address, int port, DatagramSocket socket) { //HANDLE SIMULTANEOUS SYN PACKETS?
+		int session1 = rand.nextInt();
+		Packet SYNDataPacket = new Packet(0, session1, 0, (byte) 0, (byte) 0, (byte) 0, (byte) 1, (byte) 0, 32000, new byte[0]);
 		DatagramPacket SYNpacket = new DatagramPacket(SYNDataPacket.toArray(), SYNDataPacket.toArray().length, address, port);
 		DatagramPacket SYNACKrcvPacket = new DatagramPacket(new byte[SYNDataPacket.toArray().length], SYNDataPacket.toArray().length);
 		
 		boolean receivedResponse = trySend(socket, SYNpacket, SYNACKrcvPacket, address);
-		
-		if (receivedResponse) {
+
+		if ((receivedResponse) && (verifyAck(SYNACKrcvPacket).getAckNum() == session1)) {
 			byte[] rcvData = SYNACKrcvPacket.getData();
 			byte checkVal = (byte) 1;
 			if ((rcvData[15] == checkVal) && (rcvData[16] == checkVal)) { // if SYNACK is received
-				Packet ACKDataPacket = new Packet(0, rand.nextInt(), 0, (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 1, (short) 32000, new byte[0]);
+				int session2 = verifyAck(SYNACKrcvPacket).getSeqNum();
+				Packet ACKDataPacket = new Packet(0, session1 + 1, session2, (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 1, 32000, new byte[0]);
 				DatagramPacket ACKpacket = new DatagramPacket(ACKDataPacket.toArray(), ACKDataPacket.toArray().length, address, port);
 				DatagramPacket ACKrcvPacket = new DatagramPacket(new byte[ACKDataPacket.toArray().length], ACKDataPacket.toArray().length);
 				
 				receivedResponse = trySend(socket, ACKpacket, ACKrcvPacket, address);
 				
-				if (receivedResponse) { // if ACK is received
+				if ((receivedResponse) && (verifyAck(ACKrcvPacket).getAckNum() == (session1 + 1))) { // if ACK is received
 					byte[] rcvData2 = ACKrcvPacket.getData();
 					checkVal = (byte) 1;
 					if (rcvData2[16] == checkVal) {
-						//create connection !!!!!!!!!!!!!!!!!!!!!
+						this.connection = new Connection(session1 + session2, session1 + 2, session2, address, port);
+						System.out.println("Connection successful!");
 						return true;
 					}
 				}
@@ -103,7 +110,11 @@ public class client {
 		System.out.println("Socket connection failed.");
 		return false;
 	}
-	
+
+	private static Packet verifyAck(DatagramPacket pack) {
+		return new Packet(pack.getData());
+	}
+
 	private static boolean trySend(DatagramSocket socket, DatagramPacket sendP, DatagramPacket rcvP, InetAddress address) {
 		boolean receivedResponse = false;
 		int tries = 0;
@@ -135,11 +146,11 @@ public class client {
 	}
 
 	//CHECK SEQ/ACK NUMS and MD5
-	public static boolean close(int ID, DatagramSocket socket) {	
-		InetAddress address = connection.getAddress();
-		int port = connection.getPort();
+	public boolean close(int ID, DatagramSocket socket) {	
+		InetAddress address = this.connection.getAddress();
+		int port = this.connection.getPort();
 		
-		Packet FINDataPacket = new Packet(ID, connection.getSeqNum(), connection.getAckNum(), (byte) 0, (byte) 0, (byte) 1, (byte) 0, (byte) 0, connection.getRcvWind(), new byte[0]);
+		Packet FINDataPacket = new Packet(ID, this.connection.getSeqNum(), this.connection.getAckNum(), (byte) 0, (byte) 0, (byte) 1, (byte) 0, (byte) 0, this.connection.getRcvWind(), new byte[0]);
 		DatagramPacket FINpacket = new DatagramPacket(FINDataPacket.toArray(), FINDataPacket.toArray().length, address, port);
 		DatagramPacket rcvPacket = new DatagramPacket(new byte[FINDataPacket.toArray().length], FINDataPacket.toArray().length);
 		

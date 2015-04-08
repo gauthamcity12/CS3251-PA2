@@ -3,38 +3,24 @@ import java.net.*;
 public class Connection {
 
 	//instance variables for a connection object
-	private boolean isActive;
 	private int sessionID;
 	private int seqNum;
 	private int ackNum;
 	private InetAddress address;
 	private int port;
-	private short rcvWind;
 	private byte[] buffer;				//CHECK SIZE AND TYPE OF THIS VARIABLE
+	private int firstEmptyIndex;
+	private static final int MAXBUFSIZE = 63000;	//CHECK HOW TO CALCULATE THE RCVWIND???
 
-	/*public Connection(boolean active, InetAddress addr, int port) {
-		this.isActive = active;
+	public Connection(int ID, int sn, int an, InetAddress addr, int port) {
+		this.firstEmptyIndex = 0;
+		this.sessionID = ID;
+		this.seqNum = sn;
+		this.ackNum = an;
 		this.address = addr;
 		this.port = port;
-	}*/
-
-	/**
-	 * set active value
-	 * @param active value to set
-	 */
-	public void setActive(boolean active) {
-		this.isActive = active;
-	}
-
-	/**
-	 * get whether or not connection is active
-	 * @return active bit
-	 */
-	public boolean getActive() {
-		return this.isActive;
 	}
 	
-
 	/**
 	 * set session ID
 	 * @param id for new session ID
@@ -122,19 +108,11 @@ public class Connection {
 	}
 
 	/**
-	 * set receive window
-	 * @param rWind new window size
-	 */
-	public void setRcvWind(short rWind) {
-		this.rcvWind = rWind;
-	}
-
-	/**
 	 * get receive window size
 	 * @return receive window size
 	 */
-	public short getRcvWind() {
-		return this.rcvWind;
+	public int getRcvWind() {
+		return MAXBUFSIZE - firstEmptyIndex;
 	}
 
 	/**
@@ -142,22 +120,19 @@ public class Connection {
 	 * @param data to add
 	 */
 	public void addData(byte[] data) {
-		for (int i = 0; i < Math.min(buffer.length, data.length); i++) {
-			buffer[i] = data[i];
+		if (firstEmptyIndex >= buffer.length) {
+			System.out.println("Receive window is full.");
+			return;
 		}
+		int i;
+		for (i = firstEmptyIndex; i < Math.min(buffer.length, data.length + firstEmptyIndex); i++) {
+			buffer[i] = data[i - firstEmptyIndex];
+		}
+		firstEmptyIndex = Math.max(firstEmptyIndex, i);
 	}
 
-	/**
-	 * add data to the buffer, starting at the specified index
-	 * @param data to add
-	 * @param index to start adding at
-	 */
-	public void addDataAtIndex(byte[] data, int index) {
-		for (int i = 0; i < Math.min((buffer.length - index), data.length); i++) {
-			buffer[index + i] = data[i];
-		}
-	}
-
+	//********FIX GETDATA() METHODS**************
+	
 	/**
 	 * get data
 	 * @return data
