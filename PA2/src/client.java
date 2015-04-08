@@ -70,6 +70,14 @@ public class client {
 		//check scanner input
 		
 		//FINISH MAIN METHOD CODE HERE
+		
+		/*
+		 * while loop until close (Then go to idle situation to await connection) {
+		 * 		check and interpret scanner input
+		 * 		make a non-blocking receive call to check for incoming
+		 * 		catch block for timeouts
+		 * }
+		 */
 	}
 
 	
@@ -196,6 +204,20 @@ public class client {
 	}
 	
 	public int receive(){
+		/*
+		 * if received ACK											//SHOULD ACK PACKETS HAVE A SEQ NUM AND BE ADDED TO THE WINDOW???
+		 * 		check ACK against expected number and the window	//SHOULD WE ACK AND RESPOND OR SIMPLY RESPOND TO THINGS LIKE GET???
+		 * 		update window variables and window
+		 * if received GET
+		 * 		retrieve data
+		 * 		send data back
+		 * if received POST ***implement at the end***
+		 * 		read in and store data
+		 * 		send ACK
+		 * if received FIN
+		 * 		send FINACK
+		 * 		WAIT for ACK
+		 */
 		return 0;
 	}
 
