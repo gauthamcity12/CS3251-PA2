@@ -1,4 +1,7 @@
 import java.net.*;
+import java.nio.ByteBuffer;
+import java.security.MessageDigest;
+import java.util.Arrays;
 import java.util.Random;
 import java.io.*;
 import java.util.*;
@@ -84,7 +87,7 @@ public class client {
 		
 		boolean receivedResponse = trySend(socket, SYNpacket, SYNACKrcvPacket, address);
 
-		if ((receivedResponse) && (verifyAck(SYNACKrcvPacket).getAckNum() == session1)) {
+		if ((receivedResponse) && (verifyAck(SYNACKrcvPacket).getAckNum() == session1) && (checkHash(SYNACKrcvPacket))) {
 			byte[] rcvData = SYNACKrcvPacket.getData();
 			byte checkVal = (byte) 1;
 			if ((rcvData[15] == checkVal) && (rcvData[16] == checkVal)) { // if SYNACK is received
@@ -95,7 +98,7 @@ public class client {
 				
 				receivedResponse = trySend(socket, ACKpacket, ACKrcvPacket, address);
 				
-				if ((receivedResponse) && (verifyAck(ACKrcvPacket).getAckNum() == (session1 + 1))) { // if ACK is received
+				if ((receivedResponse) && (verifyAck(ACKrcvPacket).getAckNum() == (session1 + 1)) && (checkHash(ACKrcvPacket))) { // if ACK is received
 					byte[] rcvData2 = ACKrcvPacket.getData();
 					checkVal = (byte) 1;
 					if (rcvData2[16] == checkVal) {
@@ -115,6 +118,35 @@ public class client {
 		return new Packet(pack.getData());
 	}
 
+	private static boolean checkHash(DatagramPacket pack) {
+		Packet tempPack = verifyAck(pack);
+		byte[] rcvHash = tempPack.getHash();
+		
+		MessageDigest hash;
+		try {
+			hash = MessageDigest.getInstance("MD5");
+		} catch (java.security.NoSuchAlgorithmException e) {
+			return false;
+		}
+		ByteBuffer temp = ByteBuffer.allocate(21);
+		temp.putInt(tempPack.getSessionID());
+		temp.putInt(tempPack.getSeqNum());
+		temp.putInt(tempPack.getAckNum());
+		temp.put(tempPack.getGET());
+		temp.put(tempPack.getPOST());
+		temp.put(tempPack.getFIN());
+		temp.put(tempPack.getSYN());
+		temp.put(tempPack.getACK());
+		temp.putInt(tempPack.getRcvWind());
+		byte[] anotherTemp = temp.array();
+		//Taken from http://stackoverflow.com/questions/5513152/easy-way-to-concatenate-two-byte-arrays
+		byte[] aboutToHash = new byte[anotherTemp.length + tempPack.getData().length];
+		System.arraycopy(anotherTemp, 0, aboutToHash, 0, anotherTemp.length);
+		System.arraycopy(tempPack.getData(), 0, aboutToHash, anotherTemp.length, tempPack.getData().length);
+		byte[] checkHash = hash.digest(aboutToHash);
+		return Arrays.equals(rcvHash, checkHash);
+	}
+	
 	private static boolean trySend(DatagramSocket socket, DatagramPacket sendP, DatagramPacket rcvP, InetAddress address) {
 		boolean receivedResponse = false;
 		int tries = 0;

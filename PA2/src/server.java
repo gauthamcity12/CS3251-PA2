@@ -1,8 +1,10 @@
 import java.net.*;
-import java.util.HashMap;
+import java.nio.ByteBuffer;
+import java.security.MessageDigest;
+import java.util.Arrays;
 import java.util.Random;
+import java.util.Scanner;
 import java.io.*;
-import java.util.*;
 
 public class server {
 	
@@ -23,6 +25,7 @@ public class server {
 		int ownPort = -1;
 		InetAddress clientIP = null;
 		int clientPort = -1;
+		DatagramSocket socket = null;
 
 		try {
 			ownPort = Integer.parseInt(args[1]);
@@ -46,13 +49,25 @@ public class server {
 		}
 		
 		try {
-			DatagramSocket socket = new DatagramSocket(ownPort);		//NEED TO INCLUDE IP ADDRESS???  
+			socket = new DatagramSocket(ownPort);		//NEED TO INCLUDE IP ADDRESS???  
 		} catch (SocketException s) {
 			System.out.println("Couldn not create socket.");
 			System.exit(1);
 		}
 
 		System.out.println("Server binding to " + ownPort + " and sending to " + clientIP + ":" + clientPort);
+		
+		//connect to client
+		if (serverUser.connect(clientIP, clientPort, socket)) {
+			System.out.println("Successfully connected to client application.");
+		} else {
+			System.out.println("Could not connect to client application. Please try again.");
+			System.exit(1);
+		}
+		
+		Scanner scan = new Scanner(System.in);	//create scanner for reading in commands
+		
+		//check scanner input
 		
 		//FINISH MAIN METHOD CODE HERE
 	}
@@ -69,23 +84,23 @@ public class server {
 		
 		boolean receivedResponse = tryReceive(socket, SYNrcvPacket, address);
 		
-		if ((receivedResponse) && (verifyAck(SYNrcvPacket).getAckNum() == 0)) { 
-			int session1 = verifyAck(SYNrcvPacket).getSeqNum();
+		if ((receivedResponse) && (verifyAck(SYNrcvPacket).getAckNum() == 0) && (checkHash(SYNrcvPacket))) { 
 			byte[] rcvData = SYNrcvPacket.getData();
 			byte checkVal = (byte) 1;
 			if (rcvData[15] == checkVal) { // if SYN is received
+				int session1 = verifyAck(SYNrcvPacket).getSeqNum();
 				SYNACKDataPacket.setAckNum(session1);
 				DatagramPacket SYNACKPacket = new DatagramPacket(SYNACKDataPacket.toArray(), SYNACKDataPacket.toArray().length, address, port);
 				DatagramPacket ACKrcvPacket = new DatagramPacket(new byte[SYNACKDataPacket.toArray().length], SYNACKDataPacket.toArray().length);
 				
 				receivedResponse = trySend(socket, SYNACKPacket, ACKrcvPacket, address);
-				if ((receivedResponse) && (verifyAck(ACKrcvPacket).getAckNum() == session2)) { // if ACK is received
+				if ((receivedResponse) && (verifyAck(ACKrcvPacket).getAckNum() == session2) && (checkHash(ACKrcvPacket))) { // if ACK is received
 					byte[] rcvData2 = ACKrcvPacket.getData();
 					checkVal = (byte) 1;
 					if(rcvData2[16] == checkVal){
 						Packet ACKDataPacket2 = new Packet(0, session2 + 1, verifyAck(ACKrcvPacket).getSeqNum(), (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 1, 32000, new byte[0]);
-						DatagramPacket ACKPacket = new DatagramPacket(new byte[ACKDataPacket2.toArray().length], ACKDataPacket2.toArray().length);
-						if (trySend(socket, ACKPacket, address)) {
+						DatagramPacket ACKPacket = new DatagramPacket(ACKDataPacket2.toArray(), ACKDataPacket2.toArray().length, address, port);
+						if (trySend(socket, ACKPacket)) {
 							this.connection = new Connection(session1 + session2, session2 + 2, session1 + 1, address, port);
 							System.out.println("Connection successful!");
 							return true;
@@ -101,6 +116,35 @@ public class server {
 
 	private static Packet verifyAck(DatagramPacket pack) {
 		return new Packet(pack.getData());
+	}
+	
+	private static boolean checkHash(DatagramPacket pack) {
+		Packet tempPack = verifyAck(pack);
+		byte[] rcvHash = tempPack.getHash();
+		
+		MessageDigest hash;
+		try {
+			hash = MessageDigest.getInstance("MD5");
+		} catch (java.security.NoSuchAlgorithmException e) {
+			return false;
+		}
+		ByteBuffer temp = ByteBuffer.allocate(21);
+		temp.putInt(tempPack.getSessionID());
+		temp.putInt(tempPack.getSeqNum());
+		temp.putInt(tempPack.getAckNum());
+		temp.put(tempPack.getGET());
+		temp.put(tempPack.getPOST());
+		temp.put(tempPack.getFIN());
+		temp.put(tempPack.getSYN());
+		temp.put(tempPack.getACK());
+		temp.putInt(tempPack.getRcvWind());
+		byte[] anotherTemp = temp.array();
+		//Taken from http://stackoverflow.com/questions/5513152/easy-way-to-concatenate-two-byte-arrays
+		byte[] aboutToHash = new byte[anotherTemp.length + tempPack.getData().length];
+		System.arraycopy(anotherTemp, 0, aboutToHash, 0, anotherTemp.length);
+		System.arraycopy(tempPack.getData(), 0, aboutToHash, anotherTemp.length, tempPack.getData().length);
+		byte[] checkHash = hash.digest(aboutToHash);
+		return Arrays.equals(rcvHash, checkHash);
 	}
 	
 	private static boolean tryReceive(DatagramSocket socket, DatagramPacket rcvP, InetAddress address) {
@@ -138,7 +182,7 @@ public class server {
 		return receivedResponse;
 	}
 	
-	private static boolean trySend(DatagramSocket socket, DatagramPacket sendP, InetAddress address) {
+	private static boolean trySend(DatagramSocket socket, DatagramPacket sendP) {
 		boolean receivedResponse = false;
 		int tries = 0;
 		do {
@@ -146,7 +190,11 @@ public class server {
 				socket.setSoTimeout(TIMEOUT);
 				socket.send(sendP);
 				receivedResponse = true;
+			} catch (InterruptedIOException e) {
+				tries += 1;
+				System.out.println("Timed out, " + (MAXTRIES - tries) + " more tries.");
 			} catch (Exception f) {
+				System.out.println(f);
 				return false;
 			}
 		} while ((!receivedResponse) && (tries < MAXTRIES));
