@@ -64,7 +64,7 @@ public class client {
 			System.out.println("Could not connect to server application. Please try again.");
 			System.exit(1);
 		}
-
+		
 		Scanner scan = new Scanner(System.in);	//create scanner for reading in commands
 		
 		//check scanner input
@@ -172,6 +172,25 @@ public class client {
 		return receivedResponse;
 	}
 	
+	private static boolean trySend(DatagramSocket socket, DatagramPacket sendP) {
+		boolean receivedResponse = false;
+		int tries = 0;
+		do {
+			try {
+				socket.setSoTimeout(TIMEOUT);
+				socket.send(sendP);
+				receivedResponse = true;
+			} catch (InterruptedIOException e) {
+				tries += 1;
+				System.out.println("Timed out, " + (MAXTRIES - tries) + " more tries.");
+			} catch (Exception f) {
+				System.out.println(f);
+				return false;
+			}
+		} while ((!receivedResponse) && (tries < MAXTRIES));
+		return receivedResponse;
+	}
+	
 	public int send(){
 		return 0;
 	}
@@ -190,14 +209,21 @@ public class client {
 		DatagramPacket rcvPacket = new DatagramPacket(new byte[FINDataPacket.toArray().length], FINDataPacket.toArray().length);
 		
 		boolean receivedResponse = trySend(socket, FINpacket, rcvPacket, address);
+		connection.setSeqNum(connection.getSeqNum() + 1);
 		
-		if (receivedResponse) {
+		if ((receivedResponse) && (verifyAck(rcvPacket).getAckNum() == connection.getSeqNum() - 1) && (checkHash(rcvPacket))) {
 			byte[] rcvData = rcvPacket.getData();
 			byte checkVal = (byte) 1;
 			if (rcvData[16] == checkVal) {
+				Packet ACKFinalPacket = new Packet(ID, this.connection.getSeqNum(), verifyAck(rcvPacket).getSeqNum(), (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 1, this.connection.getRcvWind(), new byte[0]);
+				DatagramPacket ACKFPacket = new DatagramPacket(ACKFinalPacket.toArray(), ACKFinalPacket.toArray().length, address, port);
+				
 				if (rcvData[14] == checkVal) {
-					//send final ack
-					return true;
+					if (trySend(socket, ACKFPacket)) {
+						this.connection.setAckNum(verifyAck(rcvPacket).getSeqNum());
+						return true;
+					}
+					return false;
 				} else {
 					rcvPacket = new DatagramPacket(new byte[FINDataPacket.toArray().length], FINDataPacket.toArray().length);
 					try {
@@ -205,12 +231,17 @@ public class client {
 						if (!rcvPacket.getAddress().equals(address)) { //Check source for received packet
 							throw new IOException("Received packet was from unknown source");
 						}
+						ACKFinalPacket.setAckNum(verifyAck(rcvPacket).getSeqNum());
+						ACKFPacket = new DatagramPacket(ACKFinalPacket.toArray(), ACKFinalPacket.toArray().length, address, port);
 					} catch (Exception f) {
 						return false;
 					}
 					if (rcvData[14] == checkVal) {
-						//send final ack
-						return true;
+						if (trySend(socket, ACKFPacket)) {
+							this.connection.setAckNum(verifyAck(rcvPacket).getSeqNum());
+							return true;
+						}
+						return false;
 					}
 				}
 			}
