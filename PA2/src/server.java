@@ -67,6 +67,9 @@ public class server {
 		
 		Scanner scan = new Scanner(System.in);	//create scanner for reading in commands
 		
+		while (!serverUser.receive(socket)) {}
+		
+		
 		//check scanner input
 		
 		//FINISH MAIN METHOD CODE HERE
@@ -234,7 +237,20 @@ public class server {
 		return 0;
 	}
 	
-	public int receive(){
+	public boolean receive(DatagramSocket socket){
+		DatagramPacket genericRcvPacket = new DatagramPacket(new byte[Packet.MAXPACKETSIZE], Packet.MAXPACKETSIZE);
+		if ((tryReceive(socket, genericRcvPacket, connection.getAddress())) && (checkHash(genericRcvPacket))) {
+			if (verifyAck(genericRcvPacket).getFIN() == (byte) 1) { //client initiated close
+				if (closeReceive(socket, verifyAck(genericRcvPacket))) {
+					socket.close();
+					System.out.println("Closing socket");
+					return true;
+				} else {
+					System.out.println("Failed in attempt to handle client initiated close.");
+					return false;
+				}
+			}
+		}
 		/*
 		 * if received ACK											//SHOULD ACK PACKETS HAVE A SEQ NUM AND BE ADDED TO THE WINDOW???
 		 * 		check ACK against expected number and the window	//SHOULD WE ACK AND RESPOND OR SIMPLY RESPOND TO THINGS LIKE GET???
@@ -245,11 +261,24 @@ public class server {
 		 * if received POST ***implement at the end***
 		 * 		read in and store data
 		 * 		send ACK
-		 * if received FIN
-		 * 		send FINACK
-		 * 		WAIT for ACK
 		 */
-		return 0;
+		return false;
+	}
+
+	private boolean closeReceive(DatagramSocket socket, Packet serverACKPack) {
+		Packet FINACKDataPacket = new Packet(serverACKPack.getSessionID(), connection.getSeqNum(), serverACKPack.getSeqNum(), (byte) 0, (byte) 0, (byte) 1, (byte) 0, (byte) 1, connection.getRcvWind(), new byte[0]);
+		DatagramPacket FINACKpacket = new DatagramPacket(FINACKDataPacket.toArray(), FINACKDataPacket.toArray().length, connection.getAddress(), connection.getPort());
+		DatagramPacket rcvPacket = new DatagramPacket(new byte[FINACKDataPacket.toArray().length], FINACKDataPacket.toArray().length);
+		
+		boolean receivedResponse = trySend(socket, FINACKpacket, rcvPacket, connection.getAddress());
+		connection.setSeqNum(connection.getSeqNum() + 1);
+		
+		if ((receivedResponse) && (verifyAck(rcvPacket).getAckNum() == FINACKDataPacket.getSeqNum()) && (checkHash(rcvPacket))){
+			if (verifyAck(rcvPacket).getACK() == (byte) 1) {
+				return true;
+			}
+		}
+		return false;
 	}
 	
 	//CHECK SEQ/ACK NUMS and MD5

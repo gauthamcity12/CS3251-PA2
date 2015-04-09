@@ -1,5 +1,7 @@
 import java.net.*;
-import java.nio.ByteBuffer;
+import java.nio.*;
+import java.nio.file.Files;
+import java.nio.file.StandardOpenOption;
 import java.security.MessageDigest;
 import java.util.Arrays;
 import java.util.Random;
@@ -64,6 +66,18 @@ public class client {
 			System.out.println("Could not connect to server application. Please try again.");
 			System.exit(1);
 		}
+		
+		/////DELETE THIS LATER//////
+		for(int i = 0; i < 1000; i++) {
+			System.out.print("");
+		}
+		if (clientUser.close(clientUser.connection.getSessionID(), socket)) {
+			System.out.println("Successfully close with server application.");
+		} else {
+			System.out.println("Could not close with server application.");
+			System.exit(1);
+		}
+		//////////////////////////
 		
 		Scanner scan = new Scanner(System.in);	//create scanner for reading in commands
 		
@@ -207,13 +221,103 @@ public class client {
 			}
 			return true;
 		} catch (Exception f) {
-			System.out.println("There was a problem receiving: " + f);
-			return false;
+			//System.out.println("There was a problem receiving: " + f);
+			//return false;
+			return tryReceive(socket, rcvP, address);
 		}
 	}
+
+	private static boolean trySend(DatagramSocket socket, DatagramPacket sendP, InetAddress address, Connection connect) {
+		DatagramPacket rcvP = new DatagramPacket(new byte[Packet.MAXPACKETSIZE], Packet.MAXPACKETSIZE);
+		int lastAck = 0;
+		int lastSeq = 0;
+		boolean receivedResponse = false;
+		int tries = 0;
+		do {
+			try {
+				socket.setSoTimeout(TIMEOUT);
+				trySend(socket, sendP, rcvP, address);
+				if (!rcvP.getAddress().equals(address)) { //Check source for received packet
+					throw new IOException("Received packet was from unknown source");
+				}
+				if (verifyAck(rcvP).getACK() != 1 || verifyAck(rcvP).getPOST() != 1) { // send GET request again
+					while (verifyAck(rcvP).getACK() != 1 || verifyAck(rcvP).getPOST() != 1) {
+						trySend(socket, sendP, rcvP, address);
+					}
+				}
+				byte[] data = verifyAck(rcvP).getData();
+				connect.addData(data);			//CHECK ON LENGTH!!!!!!!!!!!!???????????
+				lastAck = verifyAck(rcvP).getSeqNum(); // seq # of the first data packet
+				lastSeq = verifyAck(rcvP).getAckNum(); // 
+				
+				Packet ACKDataPacket = new Packet(verifyAck(sendP).getSessionID(), lastSeq++, lastAck, (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 1, connect.getRcvWind(), new byte[0]);
+				DatagramPacket ACKpacket = new DatagramPacket(ACKDataPacket.toArray(), ACKDataPacket.toArray().length, address, socket.getPort());
+				trySend(socket, ACKpacket);
+				
+				receivedResponse = true;
+			} catch (InterruptedIOException e) {
+				tries += 1;
+				System.out.println("Timed out, " + (MAXTRIES - tries) + " more tries.");
+			} catch (Exception f) {
+				return false;
+			}
+		} while ((!receivedResponse) && (tries < MAXTRIES));
+		if (tries >= MAXTRIES) return false;
+		Packet rcv = null;
+		do {
+			if (tryReceive(socket, rcvP, address)) {
+				rcv = verifyAck(rcvP);
+				if ((rcv.getGET() == 0) && (rcv.getPOST() == 0) && (rcv.getSYN() == 0) && (rcv.getFIN() == 0) && (rcv.getACK() == 0)) {
+					Packet ACKFDataPacket = new Packet(verifyAck(sendP).getSessionID(), lastSeq++, (lastAck = rcv.getSeqNum()), (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 1, connect.getRcvWind(), new byte[0]);
+					DatagramPacket ACKFpacket = new DatagramPacket(ACKFDataPacket.toArray(), ACKFDataPacket.toArray().length, address, socket.getPort());
+					trySend(socket, ACKFpacket);
+					connect.setAckNum(lastAck);				//CHECK ON SETTING THIS AT OTHER RETURNS
+					connect.setSeqNum(lastSeq + 1);
+					return true;
+				} else {
+					byte[] data = verifyAck(rcvP).getData();
+					DatagramPacket ACKPacket = null;
+					if ((verifyAck(rcvP).getACK() != 1) || (verifyAck(rcvP).getPOST() != 1) || (verifyAck(rcvP).getSeqNum() != lastAck + 1)) { // re-ACK 
+						Packet ACKDataPacket = new Packet(verifyAck(rcvP).getSessionID(), lastSeq, lastAck, (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 1, verifyAck(sendP).getRcvWind(), new byte[0]);
+						ACKPacket = new DatagramPacket(ACKDataPacket.toArray(), ACKDataPacket.toArray().length, address, socket.getPort());
+						while ((verifyAck(rcvP).getACK() != 1) || (verifyAck(rcvP).getPOST() != 1) || (verifyAck(rcvP).getSeqNum() != lastAck + 1)) {
+							trySend(socket, ACKPacket, rcvP, address);
+						}
+					}
+					connect.addData(data);			//CHECK ON LENGTH!!!!!!!!!!!!???????????
+					lastAck = verifyAck(rcvP).getSeqNum();
+					lastSeq = verifyAck(ACKPacket).getSeqNum(); // DOUBLE CHECK THIS // last SEQ # that was sent
+					Packet ACKDataPacket = new Packet(verifyAck(sendP).getSessionID(), lastSeq++, lastAck, (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 1, connect.getRcvWind(), new byte[0]);
+					DatagramPacket ACKpacket = new DatagramPacket(ACKDataPacket.toArray(), ACKDataPacket.toArray().length, address, socket.getPort());
+					trySend(socket, ACKpacket);
+				}
+			} else {
+				return false; //will never happen
+			}
+		} while (true);
+	}
 	
-	public int send(){
-		return 0;
+	public boolean send(byte flag, byte[] data, DatagramSocket socket) {
+		if (data.length > Packet.MAXPACKETSIZE - 37) {
+			System.out.println("File name is too long.");	//this would be absurd for a file name
+		}
+		Packet sendDataPacket = new Packet(this.connection.getSessionID(), this.connection.getSeqNum(), 47, (byte) 1, (byte) 0, (byte) 0, (byte) 0, (byte) 0, connection.getRcvWind(), data);
+		DatagramPacket sendPacket = new DatagramPacket(sendDataPacket.toArray(), sendDataPacket.toArray().length, connection.getAddress(), connection.getPort());
+		this.connection.setSeqNum(this.connection.getSeqNum() + 1);
+		
+		if (trySend(socket, sendPacket, this.connection.getAddress(), this.connection)) {
+			String filename = new String(data);
+			File newFile = new File(filename);
+			boolean loopflag = true;
+			while (loopflag) {
+				try {
+					Files.write(newFile.toPath(), connection.getData(), StandardOpenOption.WRITE);
+					loopflag = false;
+				} catch (Exception e) {}			//RISK OF INFINITE LOOP!!!!!!!!!!!!!!
+			}
+			return true;
+		}
+		return false;
 	}
 	
 	public boolean receive(DatagramSocket socket){
@@ -281,6 +385,7 @@ public class client {
 				if (rcvData[14] == checkVal) {
 					if (trySend(socket, ACKFPacket)) {
 						this.connection.setAckNum(verifyAck(rcvPacket).getSeqNum());
+						socket.close();
 						return true;
 					}
 					return false;
@@ -299,6 +404,7 @@ public class client {
 					if (rcvData[14] == checkVal) {
 						if (trySend(socket, ACKFPacket)) {
 							this.connection.setAckNum(verifyAck(rcvPacket).getSeqNum());
+							socket.close();
 							return true;
 						}
 						return false;
