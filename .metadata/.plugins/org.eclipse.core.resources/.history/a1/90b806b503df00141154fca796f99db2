@@ -236,7 +236,7 @@ public class server {
 		return 0;
 	}
 	
-	public boolean receive(DatagramSocket socket, Connection connection){
+	public boolean receive(DatagramSocket socket){
 		DatagramPacket genericRcvPacket = new DatagramPacket(new byte[Packet.MAXPACKETSIZE], Packet.MAXPACKETSIZE);
 		if ((tryReceive(socket, genericRcvPacket, connection.getAddress())) && (checkHash(genericRcvPacket))) {
 			if (verifyAck(genericRcvPacket).getFIN() == (byte) 1) { //client initiated close
@@ -249,9 +249,7 @@ public class server {
 					return false;
 				}
 			} else if (verifyAck(genericRcvPacket).getGET() == (byte) 1) {	//client sends GET request packet
-				retrieveFile(verifyAck(genericRcvPacket), connection); //***FINISH THIS***
-				//
-				//
+				retrieveFile(verifyAck(genericRcvPacket));
 			}
 		}
 		/*
@@ -305,6 +303,8 @@ public class server {
 			packetStream.add(endOfFilePacket);
 			return packetStream;
 		}
+		
+		return packetStream;
 	}
 
 	private boolean closeReceive(DatagramSocket socket, Packet serverACKPack) {

@@ -249,9 +249,7 @@ public class server {
 					return false;
 				}
 			} else if (verifyAck(genericRcvPacket).getGET() == (byte) 1) {	//client sends GET request packet
-				retrieveFile(verifyAck(genericRcvPacket), connection); //***FINISH THIS***
-				//
-				//
+				retrieveFile(verifyAck(genericRcvPacket), connection);
 			}
 		}
 		/*

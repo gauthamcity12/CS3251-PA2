@@ -236,7 +236,7 @@ public class server {
 		return 0;
 	}
 	
-	public boolean receive(DatagramSocket socket, Connection connection){
+	public boolean receive(DatagramSocket socket){
 		DatagramPacket genericRcvPacket = new DatagramPacket(new byte[Packet.MAXPACKETSIZE], Packet.MAXPACKETSIZE);
 		if ((tryReceive(socket, genericRcvPacket, connection.getAddress())) && (checkHash(genericRcvPacket))) {
 			if (verifyAck(genericRcvPacket).getFIN() == (byte) 1) { //client initiated close
@@ -249,9 +249,7 @@ public class server {
 					return false;
 				}
 			} else if (verifyAck(genericRcvPacket).getGET() == (byte) 1) {	//client sends GET request packet
-				retrieveFile(verifyAck(genericRcvPacket), connection); //***FINISH THIS***
-				//
-				//
+				retrieveFile(verifyAck(genericRcvPacket));
 			}
 		}
 		/*
@@ -268,7 +266,7 @@ public class server {
 		return false;
 	}
 
-	private ArrayList<Packet> retrieveFile(Packet rcvPacket, Connection connection) { //seq & ack numbers & rcvWind are not set and should be before they are sent
+	private ArrayList<Packet> retrieveFile(Packet rcvPacket, Connection connection) { //seq and ack numbers are not set and should be before they are sent
 		ArrayList<Packet> packetStream = new ArrayList<>(); //will be returned
 		
 		Packet endOfFilePacket = new Packet(rcvPacket.getSessionID(), 0, 0, (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 0, connection.getRcvWind(), new byte[0]);
@@ -277,34 +275,20 @@ public class server {
 		String filename = new String(fnameArray);
 		File fnameFile = new File(filename);
 		boolean loopflag = true;
-		byte[] fileData = new byte[0];
-		int sz = 0;
+		byte[] fileData;
 		if (Files.exists(fnameFile.toPath(), LinkOption.NOFOLLOW_LINKS)) {
 			while (loopflag) {
 				try {
-					sz = Files.readAllBytes(fnameFile.toPath()).length;
-					fileData = new byte[sz];
 					fileData = Files.readAllBytes(fnameFile.toPath());
 					loopflag = false;
-				} catch (Exception e) {
-					System.out.println(e);
-				}			//RISK OF INFINITE LOOP!!!!!!!!!!!!!!
+				} catch (Exception e) {}			//RISK OF INFINITE LOOP!!!!!!!!!!!!!!
 			}
-			int intFileIndex = 0;
-			int maxDataPerPacket = Packet.MAXPACKETSIZE - 37;
-			int numPackets = (sz / maxDataPerPacket) + 1;
-			for (int i = 0; i < numPackets; i++) {
-				byte[] temp = new byte[Math.min(maxDataPerPacket, sz - intFileIndex)];
-				intFileIndex += temp.length;
-				Packet tempPacket = new Packet(rcvPacket.getSessionID(), 0, 0, (byte) 0, (byte) 1, (byte) 0, (byte) 0, (byte) 1, connection.getRcvWind(), temp);
-				packetStream.add(tempPacket);
-			}
-			packetStream.add(endOfFilePacket);
-			return packetStream;
 		} else {
 			packetStream.add(endOfFilePacket);
 			return packetStream;
 		}
+		
+		return packetStream;
 	}
 
 	private boolean closeReceive(DatagramSocket socket, Packet serverACKPack) {

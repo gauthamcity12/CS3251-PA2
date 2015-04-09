@@ -241,15 +241,7 @@ public class client {
 					throw new IOException("Received packet was from unknown source");
 				}
 				if (verifyAck(rcvP).getACK() != 1 || verifyAck(rcvP).getPOST() != 1) { // send GET request again
-					if ((verifyAck(rcvP).getGET() == 0) && (verifyAck(rcvP).getPOST() == 0) && (verifyAck(rcvP).getSYN() == 0) && (verifyAck(rcvP).getFIN() == 0) && (verifyAck(rcvP).getACK() == 0)) {
-						System.out.println("File does not exist on the server.");
-						return false;	//file does not exist
-					}
 					while (verifyAck(rcvP).getACK() != 1 || verifyAck(rcvP).getPOST() != 1) {
-						if ((verifyAck(rcvP).getGET() == 0) && (verifyAck(rcvP).getPOST() == 0) && (verifyAck(rcvP).getSYN() == 0) && (verifyAck(rcvP).getFIN() == 0) && (verifyAck(rcvP).getACK() == 0)) {
-							System.out.println("File does not exist on the server.");
-							return false;	//file does not exist
-						}
 						trySend(socket, sendP, rcvP, address);
 					}
 				}
