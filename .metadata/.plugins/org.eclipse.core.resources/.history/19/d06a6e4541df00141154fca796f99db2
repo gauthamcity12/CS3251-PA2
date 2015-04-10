@@ -318,9 +318,12 @@ public class server {
 			System.out.println("check1");
 			while (loopflag) {
 				try {
+					System.out.println("check2");
 					sz = Files.readAllBytes(fnameFile.toPath()).length;
+					System.out.println("check3 - got size");
 					fileData = new byte[sz];
 					fileData = Files.readAllBytes(fnameFile.toPath());
+					System.out.println("check4 - got file data");
 					loopflag = false;
 				} catch (Exception e) {
 					System.out.println("check6 " + e);

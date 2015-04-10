@@ -138,7 +138,11 @@ public class Connection {
 	 * @return data
 	 */
 	public byte[] getData() {
-		return this.buffer;
+		byte[] temp = new byte[firstEmptyIndex];
+		for (int i = 0; i < firstEmptyIndex; i++) {
+			temp[i] = buffer[i];
+		}
+		return temp;
 	}
 
 	/**
