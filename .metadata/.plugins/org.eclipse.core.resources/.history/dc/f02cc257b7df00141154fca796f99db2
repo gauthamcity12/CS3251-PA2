@@ -241,18 +241,18 @@ public class client {
 		boolean receivedResponse = false;
 		int tries = 0;
 		do {
-			//System.out.println("TEST4");
+			System.out.println("TEST4");
 			try {
 				socket.setSoTimeout(TIMEOUT);
-				//System.out.println("TESTa");
+				System.out.println("TESTa");
 				trySend(socket, sendP, rcvP, address);
-				//System.out.println("TESTb");
+				System.out.println("TESTb");
 				if (!rcvP.getAddress().equals(address)) { //Check source for received packet
 					throw new IOException("Received packet was from unknown source");
 				}
-				//System.out.println("TESTc");
+				System.out.println("TESTc");
 				if (verifyAck(rcvP).getACK() != 1 || verifyAck(rcvP).getPOST() != 1) { // send GET request again
-					//System.out.println("TESTd");
+					System.out.println("TESTd");
 					if ((verifyAck(rcvP).getGET() == 0) && (verifyAck(rcvP).getPOST() == 0) && (verifyAck(rcvP).getSYN() == 0) && (verifyAck(rcvP).getFIN() == 0) && (verifyAck(rcvP).getACK() == 0)) {
 						System.out.println("File does not exist on the server.");
 						return false;	//file does not exist
@@ -262,57 +262,56 @@ public class client {
 							System.out.println("File does not exist on the server.");
 							return false;	//file does not exist
 						}
-						//System.out.println("TESTe");
+						System.out.println("TESTe");
 						trySend(socket, sendP, rcvP, address);
-						//System.out.println("TESTf");
+						System.out.println("TESTf");
 					}
 				}
-				//System.out.println("TESTg");
+				System.out.println("TESTg");
 				int dsz = verifyAck(rcvP).getDataSize();
 				System.out.println("DATA SIZE = " + dsz);
 				byte[] data = new byte[dsz];
-//				System.out.println("DATA = " + data);
-//				System.out.println("Seq: " + verifyAck(rcvP).getSeqNum());
-//				System.out.println("SID: " + verifyAck(rcvP).getSessionID());
-//				System.out.println("POST: " + verifyAck(rcvP).getPOST());
-//				System.out.println("ACK: " + verifyAck(rcvP).getACK());
-				System.arraycopy(verifyAck(rcvP).getData(), 0, data, 0, dsz);
-//				////
-//				System.out.println("BYTE ARRAY");
-//				for (int q = 0; q < dsz; q++) {
-//					System.out.print(data[q]);
-//				}
-//				System.out.println();
-//				////
-//				System.out.println("DATA2 = " + data);
-//				System.out.println("TEST345678");
+				System.out.println("DATA = " + data);
+				for (int z = 0; z < dsz; z++) {
+					data[z] = verifyAck(rcvP).getData()[z];
+				}
+				//System.arraycopy(verifyAck(rcvP).getData(), 0, data, 0, dsz);
+				////
+				System.out.println("BYTE ARRAY");
+				for (int q = 0; q < dsz; q++) {
+					System.out.print(data[q]);
+				}
+				System.out.println();
+				////
+				System.out.println("DATA2 = " + data);
+				System.out.println("TEST345678");
 				connect.addData(data);			//CHECK ON LENGTH!!!!!!!!!!!!???????????
-				//System.out.println("TESTj");
+				System.out.println("TESTj");
 				lastAck = verifyAck(rcvP).getSeqNum(); // seq # of the first data packet
 				lastSeq = verifyAck(rcvP).getAckNum(); // 
-				//System.out.println("TESTk");
+				System.out.println("TESTk");
 				
 				Packet ACKDataPacket = new Packet(verifyAck(sendP).getSessionID(), lastSeq++, lastAck, (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 1, connect.getRcvWind(), new byte[0], 0);
 				DatagramPacket ACKpacket = new DatagramPacket(ACKDataPacket.toArray(), ACKDataPacket.toArray().length, address, connect.getPort());
 				trySend(socket, ACKpacket);
-				//System.out.println("TESTm");
+				System.out.println("TESTm");
 				
 				receivedResponse = true;
-				//System.out.println("TESTh");
+				System.out.println("TESTh");
 			} catch (InterruptedIOException e) {
 				tries += 1;
-				//System.out.println("TEST5");
+				System.out.println("TEST5");
 				System.out.println("Timed out, " + (MAXTRIES - tries) + " more tries.");
 			} catch (Exception f) {
-				//System.out.println("TEST7 " + f);
+				System.out.println("TEST7 " + f);
 				return false;
 			}
 		} while ((!receivedResponse) && (tries < MAXTRIES));
-		//System.out.println("TEST6");
+		System.out.println("TEST6");
 		if (tries >= MAXTRIES) return false;
 		Packet rcv = null;
 		do {
-			//System.out.println("TEST8");
+			System.out.println("TEST8");
 			if (tryReceive(socket, rcvP, address)) {
 				rcv = verifyAck(rcvP);
 				if ((rcv.getGET() == 0) && (rcv.getPOST() == 0) && (rcv.getSYN() == 0) && (rcv.getFIN() == 0) && (rcv.getACK() == 0)) {
@@ -321,7 +320,7 @@ public class client {
 					trySend(socket, ACKFpacket);
 					connect.setAckNum(lastAck);				//CHECK ON SETTING THIS AT OTHER RETURNS
 					connect.setSeqNum(lastSeq + 1);
-					//System.out.println("TEST9");
+					System.out.println("TEST9");
 					return true;
 				} else {
 					int dsz = verifyAck(rcvP).getDataSize();
@@ -343,7 +342,7 @@ public class client {
 					trySend(socket, ACKpacket);
 				}
 			} else {
-				//System.out.println("TEST10");
+				System.out.println("TEST10");
 				return false; //will never happen
 			}
 		} while (true);
@@ -359,7 +358,7 @@ public class client {
 		this.connection.setSeqNum(this.connection.getSeqNum() + 1);
 		
 		if (trySend(socket, sendPacket, this.connection.getAddress(), this.connection)) { //DAMAGE LINE
-			//System.out.println("TEST1");
+			System.out.println("TEST1");
 			String filename = new String(data);
 			boolean loopflag = true;
 			while (loopflag) {
@@ -367,13 +366,13 @@ public class client {
 					Files.write((new File(filename)).toPath(), connection.getData(), StandardOpenOption.CREATE);
 					loopflag = false;
 				} catch (Exception e) {
-					//System.out.println("error: " + e);
+					System.out.println("error: " + e);
 				}			//RISK OF INFINITE LOOP!!!!!!!!!!!!!!
 			}
-			//System.out.println("TEST2");
+			System.out.println("TEST2");
 			return true;
 		}
-	//	System.out.println("TEST3");
+		System.out.println("TEST3");
 		return false;
 	}
 	
