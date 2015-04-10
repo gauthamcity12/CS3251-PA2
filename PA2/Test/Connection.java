@@ -120,24 +120,15 @@ public class Connection {
 	 * @param data to add
 	 */
 	public void addData(byte[] data) {
-		System.out.println("starting add data method");
-		System.out.println("fei " + firstEmptyIndex);
-		System.out.println("starting check");
-		System.out.println("bul " + buffer.length);
-		System.out.println("starting also check");
 		if (firstEmptyIndex >= buffer.length) {
 			System.out.println("Receive window is full.");
 			return;
 		}
-		System.out.println("starting add data check");
 		int i;
 		for (i = firstEmptyIndex; i < Math.min(buffer.length, data.length + firstEmptyIndex); i++) {
-			System.out.println("starting loop " + i);
 			buffer[i] = data[i - firstEmptyIndex];
 		}
-		System.out.println("modify index");
 		firstEmptyIndex = Math.max(firstEmptyIndex, i);
-		System.out.println("finish add data");
 	}
 
 	//********FIX GETDATA() METHODS**************
