@@ -351,17 +351,9 @@ public class client {
 		if (trySend(socket, sendPacket, this.connection.getAddress(), this.connection)) { //DAMAGE LINE
 			System.out.println("TEST1");
 			String filename = new String(data);
-			boolean loopflag = true;
-			while (loopflag) {
-				try {
-					FileOutputStream out = new FileOutputStream(filename); //http://stackoverflow.com/questions/2885173/java-how-to-create-a-file-and-write-to-a-file
-					out.write(connection.getData());
-					out.close();
-					loopflag = false;
-				} catch (Exception e) {
-					System.out.println("error: " + e);
-				}			//RISK OF INFINITE LOOP!!!!!!!!!!!!!!
-			}
+			FileOutputStream out = new FileOutputStream(filename); //http://stackoverflow.com/questions/2885173/java-how-to-create-a-file-and-write-to-a-file
+			out.write(connection.getData());
+			out.close();
 			System.out.println("TEST2");
 			return true;
 		}

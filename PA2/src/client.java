@@ -348,16 +348,19 @@ public class client {
 		DatagramPacket sendPacket = new DatagramPacket(sendDataPacket.toArray(), sendDataPacket.toArray().length, connection.getAddress(), connection.getPort());
 		this.connection.setSeqNum(this.connection.getSeqNum() + 1);
 		
-		if (trySend(socket, sendPacket, this.connection.getAddress(), this.connection)) {
+		if (trySend(socket, sendPacket, this.connection.getAddress(), this.connection)) { //DAMAGE LINE
 			System.out.println("TEST1");
 			String filename = new String(data);
-			File newFile = new File(filename);
 			boolean loopflag = true;
 			while (loopflag) {
 				try {
-					Files.write(newFile.toPath(), connection.getData(), StandardOpenOption.WRITE);
+					FileOutputStream out = new FileOutputStream(filename); //http://stackoverflow.com/questions/2885173/java-how-to-create-a-file-and-write-to-a-file
+					out.write(connection.getData());
+					out.close();
 					loopflag = false;
-				} catch (Exception e) {}			//RISK OF INFINITE LOOP!!!!!!!!!!!!!!
+				} catch (Exception e) {
+					System.out.println("error: " + e);
+				}			//RISK OF INFINITE LOOP!!!!!!!!!!!!!!
 			}
 			System.out.println("TEST2");
 			return true;
