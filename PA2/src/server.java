@@ -321,6 +321,13 @@ public class server {
 					sz = Files.readAllBytes(fnameFile.toPath()).length;
 					fileData = new byte[sz];
 					fileData = Files.readAllBytes(fnameFile.toPath());
+					////
+					System.out.println("BYTE ARRAY");
+					for (int q = 0; q < sz; q++) {
+						System.out.print(fileData[q]);
+					}
+					System.out.println();
+					////
 					loopflag = false;
 				} catch (Exception e) {
 					System.out.println("check6 " + e);

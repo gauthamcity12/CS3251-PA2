@@ -1,7 +1,6 @@
 import java.net.*;
 import java.nio.*;
-import java.nio.file.Files;
-import java.nio.file.StandardOpenOption;
+import java.nio.file.*;
 import java.security.MessageDigest;
 import java.util.Arrays;
 import java.util.Random;
@@ -274,6 +273,13 @@ public class client {
 				byte[] data = new byte[dsz];
 				System.out.println("DATA = " + data);
 				System.arraycopy(verifyAck(rcvP).getData(), 0, data, 0, dsz);
+				////
+				System.out.println("BYTE ARRAY");
+				for (int q = 0; q < dsz; q++) {
+					System.out.print(data[q]);
+				}
+				System.out.println();
+				////
 				System.out.println("DATA2 = " + data);
 				System.out.println("TEST345678");
 				connect.addData(data);			//CHECK ON LENGTH!!!!!!!!!!!!???????????
@@ -354,10 +360,7 @@ public class client {
 			boolean loopflag = true;
 			while (loopflag) {
 				try {
-					FileOutputStream out = new FileOutputStream(filename); //http://stackoverflow.com/questions/2885173/java-how-to-create-a-file-and-write-to-a-file
-					byte[] sample = "Test of the protocol".getBytes();
-					out.write(sample);//connection.getData());
-					out.close();
+					Files.write((new File(filename)).toPath(), connection.getData(), StandardOpenOption.CREATE);
 					loopflag = false;
 				} catch (Exception e) {
 					System.out.println("error: " + e);

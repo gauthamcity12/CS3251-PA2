@@ -274,11 +274,9 @@ public class client {
 				System.out.println("DATA = " + data);
 				System.arraycopy(verifyAck(rcvP).getData(), 0, data, 0, dsz);
 				////
-				System.out.println("BYTE ARRAY");
 				for (int q = 0; q < dsz; q++) {
-					System.out.print(data[q]);
+					System.out.println(data[q]);
 				}
-				System.out.println();
 				////
 				System.out.println("DATA2 = " + data);
 				System.out.println("TEST345678");
