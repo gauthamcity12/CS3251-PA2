@@ -10,7 +10,7 @@ public class Connection {
 	private int port;
 	private byte[] buffer = new byte[MAXBUFSIZE];				//CHECK SIZE AND TYPE OF THIS VARIABLE
 	private int firstEmptyIndex;
-	private static final int MAXBUFSIZE = 63000;	//CHECK HOW TO CALCULATE THE RCVWIND???
+	private static final int MAXBUFSIZE = 65600;	//CHECK HOW TO CALCULATE THE RCVWIND???
 
 	public Connection(int ID, int sn, int an, InetAddress addr, int port) {
 		this.firstEmptyIndex = 0;

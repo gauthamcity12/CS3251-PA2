@@ -67,7 +67,7 @@ public class client {
 		}
 		
 		////DELETE THIS LATER//////////
-		if (clientUser.send((byte) 1, "test.txt", socket)) {
+		if (clientUser.send((byte) 1, "test.pdf", socket)) {
 			System.out.println("Successful send");
 		} else {
 			System.out.println("Failed to send");
