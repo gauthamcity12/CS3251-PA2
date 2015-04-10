@@ -140,9 +140,8 @@ public class Connection {
 	 */
 	public byte[] getData() {
 		byte[] temp = new byte[firstEmptyIndex];
-		for (int i = 0; i < firstEmptyIndex; i++) {
-			temp[i] = buffer[i];
-		}
+		System.arraycopy(buffer, 0, temp, 0, firstEmptyIndex);
+		buffer = new byte[MAXBUFSIZE];
 		firstEmptyIndex = 0;
 		return temp;
 	}
