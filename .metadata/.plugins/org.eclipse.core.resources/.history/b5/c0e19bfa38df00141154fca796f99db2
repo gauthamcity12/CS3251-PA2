@@ -8,7 +8,7 @@ public class Connection {
 	private int ackNum;
 	private InetAddress address;
 	private int port;
-	private byte[] buffer = new byte[MAXBUFSIZE];				//CHECK SIZE AND TYPE OF THIS VARIABLE
+	private byte[] buffer;				//CHECK SIZE AND TYPE OF THIS VARIABLE
 	private int firstEmptyIndex;
 	private static final int MAXBUFSIZE = 63000;	//CHECK HOW TO CALCULATE THE RCVWIND???
 

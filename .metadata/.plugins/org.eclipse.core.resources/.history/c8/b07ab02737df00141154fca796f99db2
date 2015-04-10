@@ -278,7 +278,6 @@ public class server {
 					while ((!trySend(socket, packetToSend, genericRcvPacket, connection.getAddress())) || (verifyAck(genericRcvPacket).getACK() != (byte) 1) || (verifyAck(genericRcvPacket).getAckNum() != temp.getSeqNum())) {
 						System.out.println((verifyAck(genericRcvPacket).getACK()));// == (byte) 1));
 						System.out.println((verifyAck(genericRcvPacket).getAckNum()));// == temp.getSeqNum()));
-						System.out.println(temp.getSeqNum());
 						System.out.println("loop");
 					}
 					System.out.println("COUNT IS " + count);

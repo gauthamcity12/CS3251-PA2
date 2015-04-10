@@ -272,9 +272,7 @@ public class client {
 				int dsz = verifyAck(rcvP).getDataSize();
 				System.out.println("DATA SIZE = " + dsz);
 				byte[] data = new byte[dsz];
-				System.out.println("DATA = " + data);
 				System.arraycopy(verifyAck(rcvP).getData(), 0, data, 0, dsz);
-				System.out.println("DATA2 = " + data);
 				System.out.println("TEST345678");
 				connect.addData(data);			//CHECK ON LENGTH!!!!!!!!!!!!???????????
 				System.out.println("TESTj");
