@@ -68,7 +68,7 @@ public class client {
 		}
 		
 		////DELETE THIS LATER//////////
-		if (clientUser.send((byte) 1, "test.pdf", socket)) {
+		if (clientUser.send((byte) 1, "test.txt", socket)) {
 			System.out.println("Successful send");
 		} else {
 			System.out.println("Failed to send");
@@ -112,7 +112,7 @@ public class client {
 	public boolean connect(InetAddress address, int port, DatagramSocket socket) { //HANDLE SIMULTANEOUS SYN PACKETS?
 		int session1 = rand.nextInt();
 		//System.out.println("///////////////////");
-		Packet SYNDataPacket = new Packet(0, session1, 0, (byte) 0, (byte) 0, (byte) 0, (byte) 1, (byte) 0, 32000, new byte[0]);
+		Packet SYNDataPacket = new Packet(0, session1, 0, (byte) 0, (byte) 0, (byte) 0, (byte) 1, (byte) 0, 32000, new byte[0], 0);
 		//System.out.println("///////////////////");
 		DatagramPacket SYNpacket = new DatagramPacket(SYNDataPacket.toArray(), SYNDataPacket.toArray().length, address, port);
 		DatagramPacket SYNACKrcvPacket = new DatagramPacket(new byte[SYNDataPacket.toArray().length], SYNDataPacket.toArray().length);
@@ -124,7 +124,7 @@ public class client {
 			byte checkVal = (byte) 1;
 			if ((rcvData[15] == checkVal) && (rcvData[16] == checkVal)) { // if SYNACK is received
 				int session2 = verifyAck(SYNACKrcvPacket).getSeqNum();
-				Packet ACKDataPacket = new Packet(0, session1 + 1, session2, (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 1, 32000, new byte[0]);
+				Packet ACKDataPacket = new Packet(0, session1 + 1, session2, (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 1, 32000, new byte[0], 0);
 				DatagramPacket ACKpacket = new DatagramPacket(ACKDataPacket.toArray(), ACKDataPacket.toArray().length, address, port);
 				DatagramPacket ACKrcvPacket = new DatagramPacket(new byte[ACKDataPacket.toArray().length], ACKDataPacket.toArray().length);
 				
@@ -160,7 +160,7 @@ public class client {
 //		} catch (java.security.NoSuchAlgorithmException e) {
 //			return false;
 //		}
-//		ByteBuffer temp = ByteBuffer.allocate(21);
+//		ByteBuffer temp = ByteBuffer.allocate(25);
 //		temp.putInt(tempPack.getSessionID());
 //		temp.putInt(tempPack.getSeqNum());
 //		temp.putInt(tempPack.getAckNum());
@@ -269,7 +269,9 @@ public class client {
 					}
 				}
 				System.out.println("TESTg");
-				byte[] data = verifyAck(rcvP).getData();
+				int dsz = verifyAck(rcvP).getDataSize();
+				byte[] data = new byte[dsz];
+				System.arraycopy(verifyAck(rcvP).getData(), 0, data, 0, dsz);
 				System.out.println("TEST345678");
 				connect.addData(data);			//CHECK ON LENGTH!!!!!!!!!!!!???????????
 				System.out.println("TESTj");
@@ -277,7 +279,7 @@ public class client {
 				lastSeq = verifyAck(rcvP).getAckNum(); // 
 				System.out.println("TESTk");
 				
-				Packet ACKDataPacket = new Packet(verifyAck(sendP).getSessionID(), lastSeq++, lastAck, (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 1, connect.getRcvWind(), new byte[0]);
+				Packet ACKDataPacket = new Packet(verifyAck(sendP).getSessionID(), lastSeq++, lastAck, (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 1, connect.getRcvWind(), new byte[0], 0);
 				DatagramPacket ACKpacket = new DatagramPacket(ACKDataPacket.toArray(), ACKDataPacket.toArray().length, address, socket.getPort());
 				trySend(socket, ACKpacket);
 				System.out.println("TESTm");
@@ -301,7 +303,7 @@ public class client {
 			if (tryReceive(socket, rcvP, address)) {
 				rcv = verifyAck(rcvP);
 				if ((rcv.getGET() == 0) && (rcv.getPOST() == 0) && (rcv.getSYN() == 0) && (rcv.getFIN() == 0) && (rcv.getACK() == 0)) {
-					Packet ACKFDataPacket = new Packet(verifyAck(sendP).getSessionID(), lastSeq++, (lastAck = rcv.getSeqNum()), (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 1, connect.getRcvWind(), new byte[0]);
+					Packet ACKFDataPacket = new Packet(verifyAck(sendP).getSessionID(), lastSeq++, (lastAck = rcv.getSeqNum()), (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 1, connect.getRcvWind(), new byte[0], 0);
 					DatagramPacket ACKFpacket = new DatagramPacket(ACKFDataPacket.toArray(), ACKFDataPacket.toArray().length, address, socket.getPort());
 					trySend(socket, ACKFpacket);
 					connect.setAckNum(lastAck);				//CHECK ON SETTING THIS AT OTHER RETURNS
@@ -309,10 +311,12 @@ public class client {
 					System.out.println("TEST9");
 					return true;
 				} else {
-					byte[] data = verifyAck(rcvP).getData();
+					int dsz = verifyAck(rcvP).getDataSize();
+					byte[] data = new byte[dsz];
+					System.arraycopy(verifyAck(rcvP).getData(), 0, data, 0, dsz);
 					DatagramPacket ACKPacket = null;
 					if ((verifyAck(rcvP).getACK() != 1) || (verifyAck(rcvP).getPOST() != 1) || (verifyAck(rcvP).getSeqNum() != lastAck + 1)) { // re-ACK 
-						Packet ACKDataPacket = new Packet(verifyAck(rcvP).getSessionID(), lastSeq, lastAck, (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 1, verifyAck(sendP).getRcvWind(), new byte[0]);
+						Packet ACKDataPacket = new Packet(verifyAck(rcvP).getSessionID(), lastSeq, lastAck, (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 1, verifyAck(sendP).getRcvWind(), new byte[0], 0);
 						ACKPacket = new DatagramPacket(ACKDataPacket.toArray(), ACKDataPacket.toArray().length, address, socket.getPort());
 						while ((verifyAck(rcvP).getACK() != 1) || (verifyAck(rcvP).getPOST() != 1) || (verifyAck(rcvP).getSeqNum() != lastAck + 1)) {
 							trySend(socket, ACKPacket, rcvP, address);
@@ -321,7 +325,7 @@ public class client {
 					connect.addData(data);			//CHECK ON LENGTH!!!!!!!!!!!!???????????
 					lastAck = verifyAck(rcvP).getSeqNum();
 					lastSeq = verifyAck(ACKPacket).getSeqNum(); // DOUBLE CHECK THIS // last SEQ # that was sent
-					Packet ACKDataPacket = new Packet(verifyAck(sendP).getSessionID(), lastSeq++, lastAck, (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 1, connect.getRcvWind(), new byte[0]);
+					Packet ACKDataPacket = new Packet(verifyAck(sendP).getSessionID(), lastSeq++, lastAck, (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 1, connect.getRcvWind(), new byte[0], 0);
 					DatagramPacket ACKpacket = new DatagramPacket(ACKDataPacket.toArray(), ACKDataPacket.toArray().length, address, socket.getPort());
 					trySend(socket, ACKpacket);
 				}
@@ -334,10 +338,10 @@ public class client {
 	
 	public boolean send(byte flag, String filenameArg, DatagramSocket socket) {
 		byte[] data = filenameArg.getBytes();
-		if (data.length > Packet.MAXPACKETSIZE - 37) {
+		if (data.length > Packet.MAXDATASIZE) {
 			System.out.println("File name is too long.");	//this would be absurd for a file name
 		}
-		Packet sendDataPacket = new Packet(this.connection.getSessionID(), this.connection.getSeqNum(), 47, (byte) 1, (byte) 0, (byte) 0, (byte) 0, (byte) 0, connection.getRcvWind(), data);
+		Packet sendDataPacket = new Packet(this.connection.getSessionID(), this.connection.getSeqNum(), 47, (byte) 1, (byte) 0, (byte) 0, (byte) 0, (byte) 0, connection.getRcvWind(), data, data.length);
 		DatagramPacket sendPacket = new DatagramPacket(sendDataPacket.toArray(), sendDataPacket.toArray().length, connection.getAddress(), connection.getPort());
 		this.connection.setSeqNum(this.connection.getSeqNum() + 1);
 		
@@ -387,7 +391,7 @@ public class client {
 	}
 
 	private boolean closeReceive(DatagramSocket socket, Packet serverACKPack) {
-		Packet FINACKDataPacket = new Packet(serverACKPack.getSessionID(), connection.getSeqNum(), serverACKPack.getSeqNum(), (byte) 0, (byte) 0, (byte) 1, (byte) 0, (byte) 1, connection.getRcvWind(), new byte[0]);
+		Packet FINACKDataPacket = new Packet(serverACKPack.getSessionID(), connection.getSeqNum(), serverACKPack.getSeqNum(), (byte) 0, (byte) 0, (byte) 1, (byte) 0, (byte) 1, connection.getRcvWind(), new byte[0], 0);
 		DatagramPacket FINACKpacket = new DatagramPacket(FINACKDataPacket.toArray(), FINACKDataPacket.toArray().length, connection.getAddress(), connection.getPort());
 		DatagramPacket rcvPacket = new DatagramPacket(new byte[FINACKDataPacket.toArray().length], FINACKDataPacket.toArray().length);
 		
@@ -407,7 +411,7 @@ public class client {
 		InetAddress address = this.connection.getAddress();
 		int port = this.connection.getPort();
 		
-		Packet FINDataPacket = new Packet(ID, this.connection.getSeqNum(), this.connection.getAckNum(), (byte) 0, (byte) 0, (byte) 1, (byte) 0, (byte) 0, this.connection.getRcvWind(), new byte[0]);
+		Packet FINDataPacket = new Packet(ID, this.connection.getSeqNum(), this.connection.getAckNum(), (byte) 0, (byte) 0, (byte) 1, (byte) 0, (byte) 0, this.connection.getRcvWind(), new byte[0], 0);
 		DatagramPacket FINpacket = new DatagramPacket(FINDataPacket.toArray(), FINDataPacket.toArray().length, address, port);
 		DatagramPacket rcvPacket = new DatagramPacket(new byte[FINDataPacket.toArray().length], FINDataPacket.toArray().length);
 		
@@ -418,7 +422,7 @@ public class client {
 			byte[] rcvData = rcvPacket.getData();
 			byte checkVal = (byte) 1;
 			if (rcvData[16] == checkVal) {
-				Packet ACKFinalPacket = new Packet(ID, this.connection.getSeqNum(), verifyAck(rcvPacket).getSeqNum(), (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 1, this.connection.getRcvWind(), new byte[0]);
+				Packet ACKFinalPacket = new Packet(ID, this.connection.getSeqNum(), verifyAck(rcvPacket).getSeqNum(), (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 1, this.connection.getRcvWind(), new byte[0], 0);
 				DatagramPacket ACKFPacket = new DatagramPacket(ACKFinalPacket.toArray(), ACKFinalPacket.toArray().length, address, port);
 				
 				if (rcvData[14] == checkVal) {

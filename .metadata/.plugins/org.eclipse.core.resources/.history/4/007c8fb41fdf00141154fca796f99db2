@@ -92,7 +92,7 @@ public class server {
 	public boolean connect(InetAddress address, int port, DatagramSocket socket){
 		int session2 = rand.nextInt();
 		//System.out.println("///////////////////---");
-		Packet SYNACKDataPacket = new Packet(0, session2, 0, (byte) 0, (byte) 0, (byte) 0, (byte) 1, (byte) 1, 32000, new byte[0], 0);
+		Packet SYNACKDataPacket = new Packet(0, session2, 0, (byte) 0, (byte) 0, (byte) 0, (byte) 1, (byte) 1, 32000, new byte[0]);
 		//System.out.println("///////////////////---");
 		DatagramPacket SYNrcvPacket = new DatagramPacket(new byte[SYNACKDataPacket.toArray().length], SYNACKDataPacket.toArray().length);
 		
@@ -115,7 +115,7 @@ public class server {
 					byte[] rcvData2 = ACKrcvPacket.getData();
 					checkVal = (byte) 1;
 					if(rcvData2[16] == checkVal){
-						Packet ACKDataPacket2 = new Packet(0, session2 + 1, verifyAck(ACKrcvPacket).getSeqNum(), (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 1, 32000, new byte[0], 0);
+						Packet ACKDataPacket2 = new Packet(0, session2 + 1, verifyAck(ACKrcvPacket).getSeqNum(), (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 1, 32000, new byte[0]);
 						DatagramPacket ACKPacket = new DatagramPacket(ACKDataPacket2.toArray(), ACKDataPacket2.toArray().length, address, port);
 						if (trySend(socket, ACKPacket)) {
 							//System.out.println("CHECK3");
@@ -146,7 +146,7 @@ public class server {
 //		} catch (java.security.NoSuchAlgorithmException e) {
 //			return false;
 //		}
-//		ByteBuffer temp = ByteBuffer.allocate(25);
+//		ByteBuffer temp = ByteBuffer.allocate(21);
 //		temp.putInt(tempPack.getSessionID());
 //		temp.putInt(tempPack.getSeqNum());
 //		temp.putInt(tempPack.getAckNum());
@@ -199,7 +199,6 @@ public class server {
 		do {
 			try {
 				socket.setSoTimeout(TIMEOUT);
-				System.out.println(verifyAck(sendP).getPOST());
 				socket.send(sendP);
 				System.out.println("sent");
 				socket.receive(rcvP);
@@ -219,7 +218,6 @@ public class server {
 				return false;
 			}
 		} while ((!receivedResponse) && (tries < MAXTRIES));
-		System.out.println("About to return: " + receivedResponse);
 		return receivedResponse;
 	}
 	
@@ -261,10 +259,6 @@ public class server {
 				}
 			} else if (verifyAck(genericRcvPacket).getGET() == (byte) 1) {	//client sends GET request packet
 				ArrayList<Packet> toSend = retrieveFile(verifyAck(genericRcvPacket), connection); //***FINISH THIS***
-				for (Packet item : toSend) {
-					System.out.println("POST: " + item.getPOST());
-				}
-				int count = 0;
 				while (!toSend.isEmpty()) {
 					Packet temp = toSend.remove(0);
 					temp.setSeqNum(connection.getSeqNum());
@@ -274,14 +268,11 @@ public class server {
 					temp.setRcvWind(connection.getRcvWind());
 					DatagramPacket packetToSend = new DatagramPacket(temp.toArray(), temp.toArray().length, connection.getAddress(), connection.getPort());
 					genericRcvPacket = new DatagramPacket(new byte[Packet.MAXPACKETSIZE], Packet.MAXPACKETSIZE);
-					System.out.println("send from packetstream");
 					while ((!trySend(socket, packetToSend, genericRcvPacket, connection.getAddress())) || (verifyAck(genericRcvPacket).getACK() != (byte) 1) || (verifyAck(genericRcvPacket).getAckNum() != temp.getSeqNum())) {
 						System.out.println((verifyAck(genericRcvPacket).getACK() == (byte) 1));
 						System.out.println((verifyAck(genericRcvPacket).getAckNum() == temp.getSeqNum()));
 						System.out.println("loop");
 					}
-					System.out.println("COUNT IS " + count);
-					count++;
 				}
 				return true;
 			}
@@ -303,54 +294,46 @@ public class server {
 	private ArrayList<Packet> retrieveFile(Packet rcvPacket, Connection connection) { //seq & ack numbers & rcvWind are not set and should be before they are sent
 		ArrayList<Packet> packetStream = new ArrayList<>(); //will be returned
 		
-		Packet endOfFilePacket = new Packet(rcvPacket.getSessionID(), 0, 0, (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 0, connection.getRcvWind(), new byte[0], 0);
+		Packet endOfFilePacket = new Packet(rcvPacket.getSessionID(), 0, 0, (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 0, connection.getRcvWind(), new byte[0]);
 		
-		int dsz = rcvPacket.getDataSize();
-		byte[] fnameArray = new byte[dsz];
-		System.arraycopy(rcvPacket.getData(), 0, fnameArray, 0, dsz);
+		byte[] fnameArray = rcvPacket.getData();
 		String filename = new String(fnameArray);
-		File fnameFile = new File(filename);
+		System.out.println("Filename at server: " + filename);
+		File fnameFile = new File("test.pdf");//filename);
 		boolean loopflag = true;
 		byte[] fileData = new byte[0];
 		int sz = 0;
 		if (Files.exists(fnameFile.toPath(), LinkOption.NOFOLLOW_LINKS)) {
-			System.out.println("check1");
 			while (loopflag) {
 				try {
-					System.out.println("check2");
 					sz = Files.readAllBytes(fnameFile.toPath()).length;
-					System.out.println("check3 - got size");
 					fileData = new byte[sz];
 					fileData = Files.readAllBytes(fnameFile.toPath());
-					System.out.println("check4 - got file data");
 					loopflag = false;
 				} catch (Exception e) {
-					System.out.println("check6 " + e);
+					System.out.println(e);
 				}			//RISK OF INFINITE LOOP!!!!!!!!!!!!!!
 			}
 			int intFileIndex = 0;
-			int maxDataPerPacket = Packet.MAXDATASIZE;
+			int maxDataPerPacket = Packet.MAXPACKETSIZE - 37;
 			int numPackets = (sz / maxDataPerPacket) + 1;
 			for (int i = 0; i < numPackets; i++) {
 				byte[] temp = new byte[Math.min(maxDataPerPacket, sz - intFileIndex)];
 				intFileIndex += temp.length;
-				Packet tempPacket = new Packet(rcvPacket.getSessionID(), 0, 0, (byte) 0, (byte) 1, (byte) 0, (byte) 0, (byte) 1, connection.getRcvWind(), temp, temp.length);
+				Packet tempPacket = new Packet(rcvPacket.getSessionID(), 0, 0, (byte) 0, (byte) 1, (byte) 0, (byte) 0, (byte) 1, connection.getRcvWind(), temp);
 				packetStream.add(tempPacket);
-				System.out.println("pssize " + packetStream.size());
 			}
 			packetStream.add(endOfFilePacket);
-			System.out.println("pssize " + packetStream.size());
 			return packetStream;
 		} else {
 			System.out.println("file does not exist");
 			packetStream.add(endOfFilePacket);
-			System.out.println("pssize for no file " + packetStream.size());
 			return packetStream;
 		}
 	}
 
 	private boolean closeReceive(DatagramSocket socket, Packet serverACKPack) {
-		Packet FINACKDataPacket = new Packet(serverACKPack.getSessionID(), connection.getSeqNum(), serverACKPack.getSeqNum(), (byte) 0, (byte) 0, (byte) 1, (byte) 0, (byte) 1, connection.getRcvWind(), new byte[0], 0);
+		Packet FINACKDataPacket = new Packet(serverACKPack.getSessionID(), connection.getSeqNum(), serverACKPack.getSeqNum(), (byte) 0, (byte) 0, (byte) 1, (byte) 0, (byte) 1, connection.getRcvWind(), new byte[0]);
 		DatagramPacket FINACKpacket = new DatagramPacket(FINACKDataPacket.toArray(), FINACKDataPacket.toArray().length, connection.getAddress(), connection.getPort());
 		DatagramPacket rcvPacket = new DatagramPacket(new byte[FINACKDataPacket.toArray().length], FINACKDataPacket.toArray().length);
 		
@@ -370,7 +353,7 @@ public class server {
 		InetAddress address = this.connection.getAddress();
 		int port = this.connection.getPort();
 		
-		Packet FINDataPacket = new Packet(ID, this.connection.getSeqNum(), this.connection.getAckNum(), (byte) 0, (byte) 0, (byte) 1, (byte) 0, (byte) 0, this.connection.getRcvWind(), new byte[0], 0);
+		Packet FINDataPacket = new Packet(ID, this.connection.getSeqNum(), this.connection.getAckNum(), (byte) 0, (byte) 0, (byte) 1, (byte) 0, (byte) 0, this.connection.getRcvWind(), new byte[0]);
 		DatagramPacket FINpacket = new DatagramPacket(FINDataPacket.toArray(), FINDataPacket.toArray().length, address, port);
 		DatagramPacket rcvPacket = new DatagramPacket(new byte[FINDataPacket.toArray().length], FINDataPacket.toArray().length);
 		
@@ -381,7 +364,7 @@ public class server {
 			byte[] rcvData = rcvPacket.getData();
 			byte checkVal = (byte) 1;
 			if (rcvData[16] == checkVal) {
-				Packet ACKFinalPacket = new Packet(ID, this.connection.getSeqNum(), verifyAck(rcvPacket).getSeqNum(), (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 1, this.connection.getRcvWind(), new byte[0], 0);
+				Packet ACKFinalPacket = new Packet(ID, this.connection.getSeqNum(), verifyAck(rcvPacket).getSeqNum(), (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 1, this.connection.getRcvWind(), new byte[0]);
 				DatagramPacket ACKFPacket = new DatagramPacket(ACKFinalPacket.toArray(), ACKFinalPacket.toArray().length, address, port);
 				
 				if (rcvData[14] == checkVal) {

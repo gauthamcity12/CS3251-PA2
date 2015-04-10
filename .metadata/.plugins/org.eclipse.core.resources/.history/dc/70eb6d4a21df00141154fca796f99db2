@@ -199,7 +199,6 @@ public class server {
 		do {
 			try {
 				socket.setSoTimeout(TIMEOUT);
-				System.out.println(verifyAck(sendP).getPOST());
 				socket.send(sendP);
 				System.out.println("sent");
 				socket.receive(rcvP);
@@ -219,7 +218,6 @@ public class server {
 				return false;
 			}
 		} while ((!receivedResponse) && (tries < MAXTRIES));
-		System.out.println("About to return: " + receivedResponse);
 		return receivedResponse;
 	}
 	
@@ -261,10 +259,6 @@ public class server {
 				}
 			} else if (verifyAck(genericRcvPacket).getGET() == (byte) 1) {	//client sends GET request packet
 				ArrayList<Packet> toSend = retrieveFile(verifyAck(genericRcvPacket), connection); //***FINISH THIS***
-				for (Packet item : toSend) {
-					System.out.println("POST: " + item.getPOST());
-				}
-				int count = 0;
 				while (!toSend.isEmpty()) {
 					Packet temp = toSend.remove(0);
 					temp.setSeqNum(connection.getSeqNum());
@@ -274,14 +268,11 @@ public class server {
 					temp.setRcvWind(connection.getRcvWind());
 					DatagramPacket packetToSend = new DatagramPacket(temp.toArray(), temp.toArray().length, connection.getAddress(), connection.getPort());
 					genericRcvPacket = new DatagramPacket(new byte[Packet.MAXPACKETSIZE], Packet.MAXPACKETSIZE);
-					System.out.println("send from packetstream");
 					while ((!trySend(socket, packetToSend, genericRcvPacket, connection.getAddress())) || (verifyAck(genericRcvPacket).getACK() != (byte) 1) || (verifyAck(genericRcvPacket).getAckNum() != temp.getSeqNum())) {
 						System.out.println((verifyAck(genericRcvPacket).getACK() == (byte) 1));
 						System.out.println((verifyAck(genericRcvPacket).getAckNum() == temp.getSeqNum()));
 						System.out.println("loop");
 					}
-					System.out.println("COUNT IS " + count);
-					count++;
 				}
 				return true;
 			}
@@ -305,27 +296,22 @@ public class server {
 		
 		Packet endOfFilePacket = new Packet(rcvPacket.getSessionID(), 0, 0, (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 0, connection.getRcvWind(), new byte[0], 0);
 		
-		int dsz = rcvPacket.getDataSize();
-		byte[] fnameArray = new byte[dsz];
-		System.arraycopy(rcvPacket.getData(), 0, fnameArray, 0, dsz);
+		byte[] fnameArray = rcvPacket.getData();
 		String filename = new String(fnameArray);
-		File fnameFile = new File(filename);
+		System.out.println("Filename at server: " + filename);
+		File fnameFile = new File("test.pdf");//filename);
 		boolean loopflag = true;
 		byte[] fileData = new byte[0];
 		int sz = 0;
 		if (Files.exists(fnameFile.toPath(), LinkOption.NOFOLLOW_LINKS)) {
-			System.out.println("check1");
 			while (loopflag) {
 				try {
-					System.out.println("check2");
 					sz = Files.readAllBytes(fnameFile.toPath()).length;
-					System.out.println("check3 - got size");
 					fileData = new byte[sz];
 					fileData = Files.readAllBytes(fnameFile.toPath());
-					System.out.println("check4 - got file data");
 					loopflag = false;
 				} catch (Exception e) {
-					System.out.println("check6 " + e);
+					System.out.println(e);
 				}			//RISK OF INFINITE LOOP!!!!!!!!!!!!!!
 			}
 			int intFileIndex = 0;
@@ -336,15 +322,12 @@ public class server {
 				intFileIndex += temp.length;
 				Packet tempPacket = new Packet(rcvPacket.getSessionID(), 0, 0, (byte) 0, (byte) 1, (byte) 0, (byte) 0, (byte) 1, connection.getRcvWind(), temp, temp.length);
 				packetStream.add(tempPacket);
-				System.out.println("pssize " + packetStream.size());
 			}
 			packetStream.add(endOfFilePacket);
-			System.out.println("pssize " + packetStream.size());
 			return packetStream;
 		} else {
 			System.out.println("file does not exist");
 			packetStream.add(endOfFilePacket);
-			System.out.println("pssize for no file " + packetStream.size());
 			return packetStream;
 		}
 	}

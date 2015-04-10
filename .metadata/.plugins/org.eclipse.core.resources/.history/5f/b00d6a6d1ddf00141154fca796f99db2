@@ -1,7 +1,7 @@
 import java.nio.ByteBuffer;
 import java.security.MessageDigest;
 											//FIGURE OUT WHICH METHODS ARE ACTUALLY NEEDED
-public class Packet {  //DAMAGE LINE
+public class Packet {
 	
 	//instance variables of header components////
 	private int sessionID;
@@ -13,15 +13,13 @@ public class Packet {  //DAMAGE LINE
 	private byte SYN;
 	private byte ACK;
 	private int rcvWind;
-	private int dataSize;
 	private static MessageDigest hash;
 	private byte[] digest = new byte[16];
 	private byte[] data = new byte[MAXPACKETSIZE - 37];					//CHECK SIZE AND TYPE FOR THIS VARIABLE
 	protected static final int MAXPACKETSIZE = 65500;
-	protected static final int MAXDATASIZE = MAXPACKETSIZE - 41;
 
 	//General constructor
-	public Packet(int id, int sNum, int aNum, byte G, byte P, byte F, byte S, byte A, int rWind, byte[] dataToSend, int dSize) {
+	public Packet(int id, int sNum, int aNum, byte G, byte P, byte F, byte S, byte A, int rWind, byte[] dataToSend) {
 		this.sessionID = id;
 		this.seqNum = sNum;
 		this.ackNum = aNum;
@@ -31,14 +29,13 @@ public class Packet {  //DAMAGE LINE
 		this.SYN = S;
 		this.ACK = A;
 		this.rcvWind = rWind;
-		this.dataSize = dSize;
 		this.data = dataToSend;
 		try {
 			hash = MessageDigest.getInstance("MD5");
 		} catch (java.security.NoSuchAlgorithmException e) {
 			System.exit(1);
 		}
-		ByteBuffer temp = ByteBuffer.allocate(25);
+		ByteBuffer temp = ByteBuffer.allocate(21);
 		temp.putInt(this.sessionID);
 		temp.putInt(this.seqNum);
 		temp.putInt(this.ackNum);
@@ -48,7 +45,6 @@ public class Packet {  //DAMAGE LINE
 		temp.put(this.SYN);
 		temp.put(this.ACK);
 		temp.putInt(this.rcvWind);
-		temp.putInt(this.dataSize);
 		byte[] anotherTemp = temp.array();
 		//Taken from http://stackoverflow.com/questions/5513152/easy-way-to-concatenate-two-byte-arrays
 		byte[] aboutToHash = new byte[anotherTemp.length + data.length];
@@ -84,10 +80,8 @@ public class Packet {  //DAMAGE LINE
 		this.ACK = packet[16];
 		System.arraycopy(packet, 17, temp, 0, 4);
 		this.rcvWind = java.nio.ByteBuffer.wrap(temp).getInt();
-		System.arraycopy(packet, 21, temp, 0, 4);
-		this.dataSize = java.nio.ByteBuffer.wrap(temp).getInt();
-		System.arraycopy(packet, 25, this.digest, 0, 16);
-		System.arraycopy(packet, 41, this.data, 0, Math.min(data.length, packet.length - 41));
+		System.arraycopy(packet, 21, this.digest, 0, 16);
+		System.arraycopy(packet, 37, this.data, 0, Math.min(data.length, packet.length - 37));
 		
 	}
 
@@ -102,9 +96,8 @@ public class Packet {  //DAMAGE LINE
 		temp.put(this.SYN); //index 15
 		temp.put(this.ACK); //index 16
 		temp.putInt(this.rcvWind); //index 17-20
-		temp.putInt(this.dataSize); //index 21-24
-		temp.put(this.digest); //index 25-40
-		temp.put(this.data); //index 41 -->
+		temp.put(this.digest); //index 21-36
+		temp.put(this.data); //index 37 -->
 		return temp.array();
 	}
 	/**
@@ -249,22 +242,6 @@ public class Packet {  //DAMAGE LINE
 	 */
 	public int getRcvWind() {
 		return this.rcvWind;
-	}
-	
-	/**
-	 * Sets data size
-	 * @param size for data
-	 */
-	public void setDataSize(int size) {
-		this.dataSize = size;
-	}
-
-	/**
-	 * Gets data size
-	 * @return data size
-	 */
-	public int getDataSize() {
-		return this.dataSize;
 	}
 
 //	/**
