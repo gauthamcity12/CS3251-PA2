@@ -378,8 +378,10 @@ public class client {
 			try {
 				if (fileCount == 0) {
 					Files.write((new File(filename)).toPath(), connection.getData(), StandardOpenOption.CREATE);
+					System.out.println("CREATE--------------------------");
 				} else {
 					Files.write((new File(filename)).toPath(), connection.getData(), StandardOpenOption.WRITE, StandardOpenOption.APPEND);
+					System.out.println("WRITE, APPEND--------------------------");
 				}
 				loopflag = false;
 			} catch (Exception e) {

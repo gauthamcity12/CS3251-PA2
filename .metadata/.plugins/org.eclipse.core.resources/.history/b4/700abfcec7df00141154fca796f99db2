@@ -377,9 +377,12 @@ public class client {
 		while (loopflag) {
 			try {
 				if (fileCount == 0) {
-					Files.write((new File(filename)).toPath(), connection.getData(), StandardOpenOption.CREATE);
+					Files.write((new File(filename)).toPath(), connection.getData(), StandardOpenOption.CREATE, StandardOpenOption.WRITE);
+					System.out.println("CREATE--------------------------");
+					fileCount++;
 				} else {
-					Files.write((new File(filename)).toPath(), connection.getData(), StandardOpenOption.WRITE, StandardOpenOption.APPEND);
+					Files.write((new File(filename)).toPath(), connection.getData(), StandardOpenOption.APPEND);
+					System.out.println("WRITE, APPEND--------------------------");
 				}
 				loopflag = false;
 			} catch (Exception e) {

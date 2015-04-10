@@ -143,7 +143,6 @@ public class Connection {
 		for (int i = 0; i < firstEmptyIndex; i++) {
 			temp[i] = buffer[i];
 		}
-		firstEmptyIndex = 0;
 		return temp;
 	}
 

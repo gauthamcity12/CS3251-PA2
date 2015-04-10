@@ -14,7 +14,6 @@ public class client {
 	private static final int TIMEOUT = 3000;
 	private static final int MAXTRIES = 5;
 	private static Random rand = new Random();
-	private static int fileCount = 0;
 
 	public static void main(String[] args) {
 		if (args.length != 4) {
@@ -323,7 +322,6 @@ public class client {
 					trySend(socket, ACKFpacket);
 					connect.setAckNum(lastAck);				//CHECK ON SETTING THIS AT OTHER RETURNS
 					connect.setSeqNum(lastSeq + 1);
-					fileCount = 0;
 					//System.out.println("TEST9");
 					return true;
 				} else {
@@ -376,11 +374,7 @@ public class client {
 		boolean loopflag = true;
 		while (loopflag) {
 			try {
-				if (fileCount == 0) {
-					Files.write((new File(filename)).toPath(), connection.getData(), StandardOpenOption.CREATE);
-				} else {
-					Files.write((new File(filename)).toPath(), connection.getData(), StandardOpenOption.WRITE, StandardOpenOption.APPEND);
-				}
+				Files.write((new File(filename)).toPath(), connection.getData(), StandardOpenOption.APPEND);
 				loopflag = false;
 			} catch (Exception e) {
 				//System.out.println("error: " + e);

@@ -14,6 +14,7 @@ public class client {
 	private static final int TIMEOUT = 3000;
 	private static final int MAXTRIES = 5;
 	private static Random rand = new Random();
+	private static int fileCount = 0;
 
 	public static void main(String[] args) {
 		if (args.length != 4) {
@@ -67,7 +68,7 @@ public class client {
 		}
 		
 		////DELETE THIS LATER//////////
-		if (clientUser.send((byte) 1, "test.pdf", socket)) {
+		if (clientUser.send((byte) 1, "test.txt", socket)) {
 			System.out.println("Successful send");
 		} else {
 			System.out.println("Failed to send");
@@ -234,7 +235,7 @@ public class client {
 		}
 	}
 
-	private static boolean trySend(DatagramSocket socket, DatagramPacket sendP, InetAddress address, Connection connect) {
+	private static boolean trySend(DatagramSocket socket, DatagramPacket sendP, InetAddress address, Connection connect, String filename) {
 		DatagramPacket rcvP = new DatagramPacket(new byte[Packet.MAXPACKETSIZE], Packet.MAXPACKETSIZE);
 		int lastAck = 0;
 		int lastSeq = 0;
@@ -287,6 +288,7 @@ public class client {
 //				System.out.println("DATA2 = " + data);
 //				System.out.println("TEST345678");
 				connect.addData(data);			//CHECK ON LENGTH!!!!!!!!!!!!???????????
+				writeDataToFile(filename, connect.getData(), connect);
 				//System.out.println("TESTj");
 				lastAck = verifyAck(rcvP).getSeqNum(); // seq # of the first data packet
 				lastSeq = verifyAck(rcvP).getAckNum(); // 
@@ -294,7 +296,7 @@ public class client {
 				
 				Packet ACKDataPacket = new Packet(verifyAck(sendP).getSessionID(), lastSeq++, lastAck, (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 1, connect.getRcvWind(), new byte[0], 0);
 				DatagramPacket ACKpacket = new DatagramPacket(ACKDataPacket.toArray(), ACKDataPacket.toArray().length, address, connect.getPort());
-				trySend(socket, ACKpacket);
+				trySend(socket, ACKpacket);			//WHAT HAPPENS IF THIS DOES NOT ARRIVE???
 				//System.out.println("TESTm");
 				
 				receivedResponse = true;
@@ -321,6 +323,7 @@ public class client {
 					trySend(socket, ACKFpacket);
 					connect.setAckNum(lastAck);				//CHECK ON SETTING THIS AT OTHER RETURNS
 					connect.setSeqNum(lastSeq + 1);
+					fileCount = 0;
 					//System.out.println("TEST9");
 					return true;
 				} else {
@@ -336,8 +339,9 @@ public class client {
 						}
 					}
 					connect.addData(data);			//CHECK ON LENGTH!!!!!!!!!!!!???????????
+					writeDataToFile(filename, connect.getData(), connect);
 					lastAck = verifyAck(rcvP).getSeqNum();
-					lastSeq = verifyAck(ACKPacket).getSeqNum(); // DOUBLE CHECK THIS // last SEQ # that was sent
+					lastSeq = verifyAck(rcvP).getAckNum(); //verifyAck(ACKPacket).getSeqNum(); // DOUBLE CHECK THIS // last SEQ # that was sent
 					Packet ACKDataPacket = new Packet(verifyAck(sendP).getSessionID(), lastSeq++, lastAck, (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 1, connect.getRcvWind(), new byte[0], 0);
 					DatagramPacket ACKpacket = new DatagramPacket(ACKDataPacket.toArray(), ACKDataPacket.toArray().length, address, connect.getPort());
 					trySend(socket, ACKpacket);
@@ -358,23 +362,33 @@ public class client {
 		DatagramPacket sendPacket = new DatagramPacket(sendDataPacket.toArray(), sendDataPacket.toArray().length, connection.getAddress(), connection.getPort());
 		this.connection.setSeqNum(this.connection.getSeqNum() + 1);
 		
-		if (trySend(socket, sendPacket, this.connection.getAddress(), this.connection)) { //DAMAGE LINE
+		if (trySend(socket, sendPacket, this.connection.getAddress(), this.connection, filenameArg)) { //DAMAGE LINE
 			//System.out.println("TEST1");
-			String filename = new String(data);
-			boolean loopflag = true;
-			while (loopflag) {
-				try {
-					Files.write((new File(filename)).toPath(), connection.getData(), StandardOpenOption.CREATE);
-					loopflag = false;
-				} catch (Exception e) {
-					//System.out.println("error: " + e);
-				}			//RISK OF INFINITE LOOP!!!!!!!!!!!!!!
-			}
+			//----------------------------------------------------
 			//System.out.println("TEST2");
 			return true;
 		}
 	//	System.out.println("TEST3");
 		return false;
+	}
+	
+	private static void writeDataToFile(String filename, byte[] dataToWrite, Connection connection) {
+		boolean loopflag = true;
+		while (loopflag) {
+			try {
+				//if (fileCount == 0) {
+					Files.write((new File(filename)).toPath(), connection.getData(), StandardOpenOption.CREATE);
+//					System.out.println("CREATE--------------------------");
+//					fileCount++;
+//				} else {
+//					Files.write((new File(filename)).toPath(), connection.getData(), StandardOpenOption.APPEND);
+//					System.out.println("WRITE, APPEND--------------------------");
+//				}
+				loopflag = false;
+			} catch (Exception e) {
+				//System.out.println("error: " + e);
+			}			//RISK OF INFINITE LOOP!!!!!!!!!!!!!!
+		}
 	}
 	
 	public boolean receive(DatagramSocket socket){

@@ -129,7 +129,6 @@ public class Connection {
 			buffer[i] = data[i - firstEmptyIndex];
 		}
 		firstEmptyIndex = Math.max(firstEmptyIndex, i);
-		System.out.println("Buffer contents " + firstEmptyIndex);
 	}
 
 	//********FIX GETDATA() METHODS**************
@@ -143,7 +142,6 @@ public class Connection {
 		for (int i = 0; i < firstEmptyIndex; i++) {
 			temp[i] = buffer[i];
 		}
-		firstEmptyIndex = 0;
 		return temp;
 	}
 
