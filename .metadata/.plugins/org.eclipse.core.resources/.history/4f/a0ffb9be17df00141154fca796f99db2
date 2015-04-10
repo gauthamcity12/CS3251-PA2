@@ -245,15 +245,11 @@ public class client {
 			System.out.println("TEST4");
 			try {
 				socket.setSoTimeout(TIMEOUT);
-				System.out.println("TESTa");
 				trySend(socket, sendP, rcvP, address);
-				System.out.println("TESTb");
 				if (!rcvP.getAddress().equals(address)) { //Check source for received packet
 					throw new IOException("Received packet was from unknown source");
 				}
-				System.out.println("TESTc");
 				if (verifyAck(rcvP).getACK() != 1 || verifyAck(rcvP).getPOST() != 1) { // send GET request again
-					System.out.println("TESTd");
 					if ((verifyAck(rcvP).getGET() == 0) && (verifyAck(rcvP).getPOST() == 0) && (verifyAck(rcvP).getSYN() == 0) && (verifyAck(rcvP).getFIN() == 0) && (verifyAck(rcvP).getACK() == 0)) {
 						System.out.println("File does not exist on the server.");
 						return false;	//file does not exist
@@ -263,27 +259,19 @@ public class client {
 							System.out.println("File does not exist on the server.");
 							return false;	//file does not exist
 						}
-						System.out.println("TESTe");
 						trySend(socket, sendP, rcvP, address);
-						System.out.println("TESTf");
 					}
 				}
-				System.out.println("TESTg");
 				byte[] data = verifyAck(rcvP).getData();
-				System.out.println("TEST345678");
 				connect.addData(data);			//CHECK ON LENGTH!!!!!!!!!!!!???????????
-				System.out.println("TESTj");
 				lastAck = verifyAck(rcvP).getSeqNum(); // seq # of the first data packet
 				lastSeq = verifyAck(rcvP).getAckNum(); // 
-				System.out.println("TESTk");
 				
 				Packet ACKDataPacket = new Packet(verifyAck(sendP).getSessionID(), lastSeq++, lastAck, (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 1, connect.getRcvWind(), new byte[0]);
 				DatagramPacket ACKpacket = new DatagramPacket(ACKDataPacket.toArray(), ACKDataPacket.toArray().length, address, socket.getPort());
 				trySend(socket, ACKpacket);
-				System.out.println("TESTm");
 				
 				receivedResponse = true;
-				System.out.println("TESTh");
 			} catch (InterruptedIOException e) {
 				tries += 1;
 				System.out.println("TEST5");

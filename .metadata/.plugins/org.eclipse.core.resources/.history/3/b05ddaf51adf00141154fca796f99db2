@@ -214,7 +214,6 @@ public class server {
 				System.out.println("t1");
 				System.out.println("Timed out, " + (MAXTRIES - tries) + " more tries.");
 			} catch (Exception f) {
-				System.out.println(f);
 				return false;
 			}
 		} while ((!receivedResponse) && (tries < MAXTRIES));

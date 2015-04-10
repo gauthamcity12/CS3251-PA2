@@ -270,17 +270,13 @@ public class client {
 				}
 				System.out.println("TESTg");
 				byte[] data = verifyAck(rcvP).getData();
-				System.out.println("TEST345678");
 				connect.addData(data);			//CHECK ON LENGTH!!!!!!!!!!!!???????????
-				System.out.println("TESTj");
 				lastAck = verifyAck(rcvP).getSeqNum(); // seq # of the first data packet
 				lastSeq = verifyAck(rcvP).getAckNum(); // 
-				System.out.println("TESTk");
 				
 				Packet ACKDataPacket = new Packet(verifyAck(sendP).getSessionID(), lastSeq++, lastAck, (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 1, connect.getRcvWind(), new byte[0]);
 				DatagramPacket ACKpacket = new DatagramPacket(ACKDataPacket.toArray(), ACKDataPacket.toArray().length, address, socket.getPort());
 				trySend(socket, ACKpacket);
-				System.out.println("TESTm");
 				
 				receivedResponse = true;
 				System.out.println("TESTh");

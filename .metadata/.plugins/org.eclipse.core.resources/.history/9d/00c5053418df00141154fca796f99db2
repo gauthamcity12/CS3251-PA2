@@ -270,7 +270,6 @@ public class client {
 				}
 				System.out.println("TESTg");
 				byte[] data = verifyAck(rcvP).getData();
-				System.out.println("TEST345678");
 				connect.addData(data);			//CHECK ON LENGTH!!!!!!!!!!!!???????????
 				System.out.println("TESTj");
 				lastAck = verifyAck(rcvP).getSeqNum(); // seq # of the first data packet

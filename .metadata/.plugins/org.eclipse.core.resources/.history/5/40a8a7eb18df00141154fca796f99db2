@@ -200,21 +200,15 @@ public class server {
 			try {
 				socket.setSoTimeout(TIMEOUT);
 				socket.send(sendP);
-				System.out.println("sent");
 				socket.receive(rcvP);
-				System.out.println("rcv");
 				if (!rcvP.getAddress().equals(address)) { //Check source for received packet
 					throw new IOException("Received packet was from unknown source");
 				}
-				System.out.println("addr good");
 				receivedResponse = true;
-				System.out.println("rr = true");
 			} catch (InterruptedIOException e) {
 				tries += 1;
-				System.out.println("t1");
 				System.out.println("Timed out, " + (MAXTRIES - tries) + " more tries.");
 			} catch (Exception f) {
-				System.out.println(f);
 				return false;
 			}
 		} while ((!receivedResponse) && (tries < MAXTRIES));
@@ -231,7 +225,6 @@ public class server {
 				receivedResponse = true;
 			} catch (InterruptedIOException e) {
 				tries += 1;
-				System.out.println("t2");
 				System.out.println("Timed out, " + (MAXTRIES - tries) + " more tries.");
 			} catch (Exception f) {
 				System.out.println(f);
@@ -268,11 +261,7 @@ public class server {
 					temp.setRcvWind(connection.getRcvWind());
 					DatagramPacket packetToSend = new DatagramPacket(temp.toArray(), temp.toArray().length, connection.getAddress(), connection.getPort());
 					genericRcvPacket = new DatagramPacket(new byte[Packet.MAXPACKETSIZE], Packet.MAXPACKETSIZE);
-					while ((!trySend(socket, packetToSend, genericRcvPacket, connection.getAddress())) || (verifyAck(genericRcvPacket).getACK() != (byte) 1) || (verifyAck(genericRcvPacket).getAckNum() != temp.getSeqNum())) {
-						System.out.println((verifyAck(genericRcvPacket).getACK() == (byte) 1));
-						System.out.println((verifyAck(genericRcvPacket).getAckNum() == temp.getSeqNum()));
-						System.out.println("loop");
-					}
+					while ((!trySend(socket, packetToSend, genericRcvPacket, connection.getAddress())) || (verifyAck(genericRcvPacket).getACK() != (byte) 1) || (verifyAck(genericRcvPacket).getAckNum() != temp.getSeqNum())) {}
 				}
 				return true;
 			}
