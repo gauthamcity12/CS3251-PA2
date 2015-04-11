@@ -145,16 +145,4 @@ public class Connection {
 		firstEmptyIndex = 0;
 		return temp;
 	}
-
-	/**
-	 * get data in amount specified
-	 * @return data
-	 */
-	public byte[] getData(int size) {
-		byte[] temp = new byte[size];
-		for (int i = 0; i < size; i++) {
-			temp[i] = buffer[i];
-		}
-		return temp;
-	}
 }
