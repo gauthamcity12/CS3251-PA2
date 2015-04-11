@@ -199,27 +199,20 @@ public class server {
 		do {
 			try {
 				socket.setSoTimeout(TIMEOUT);
-				//System.out.println(verifyAck(sendP).getPOST());
 				socket.send(sendP);
-				//System.out.println("sent");
 				socket.receive(rcvP);
-				//System.out.println("rcv");
 				if (!rcvP.getAddress().equals(address)) { //Check source for received packet
 					throw new IOException("Received packet was from unknown source");
 				}
-				//System.out.println("addr good");
 				receivedResponse = true;
-				//System.out.println("rr = true");
 			} catch (InterruptedIOException e) {
 				tries += 1;
-				//System.out.println("t1");
 				System.out.println("Timed out, " + (MAXTRIES - tries) + " more tries.");
 			} catch (Exception f) {
 				System.out.println(f);
 				return false;
 			}
 		} while ((!receivedResponse) && (tries < MAXTRIES));
-		//System.out.println("About to return: " + receivedResponse);
 		return receivedResponse;
 	}
 	
@@ -233,7 +226,6 @@ public class server {
 				receivedResponse = true;
 			} catch (InterruptedIOException e) {
 				tries += 1;
-				//System.out.println("t2");
 				System.out.println("Timed out, " + (MAXTRIES - tries) + " more tries.");
 			} catch (Exception f) {
 				System.out.println(f);
@@ -260,11 +252,7 @@ public class server {
 					return false;
 				}
 			} else if (verifyAck(genericRcvPacket).getGET() == (byte) 1) {	//client sends GET request packet
-				//Packet genericDataPacket = verifyAck(genericRcvPacket);
 				ArrayList<Packet> toSend = retrieveFile(verifyAck(genericRcvPacket), connection); //***FINISH THIS***
-				for (Packet item : toSend) {
-					//System.out.println("POST: " + item.getPOST());
-				}
 				int count = 0;
 				while (!toSend.isEmpty()) {
 					Packet temp = toSend.remove(0);
@@ -275,26 +263,7 @@ public class server {
 					temp.setRcvWind(connection.getRcvWind());
 					DatagramPacket packetToSend = new DatagramPacket(temp.toArray(), temp.toArray().length, connection.getAddress(), connection.getPort());
 					genericRcvPacket = new DatagramPacket(new byte[Packet.MAXPACKETSIZE], Packet.MAXPACKETSIZE);
-//					System.out.println("send from packetstream");
-//					System.out.println("DATA = " + verifyAck(packetToSend).getData());
-//					System.out.println("Seq: " + verifyAck(packetToSend).getSeqNum());
-//					System.out.println("SID: " + verifyAck(packetToSend).getSessionID());
-//					System.out.println("POST: " + verifyAck(packetToSend).getPOST());
-//					System.out.println("ACK: " + verifyAck(packetToSend).getACK());
-//					////
-//					System.out.println("BYTE ARRAY");
-//					for (int q = 0; q < verifyAck(packetToSend).getDataSize(); q++) {
-//						System.out.print(verifyAck(packetToSend).getData()[q]);
-//					}
-//					System.out.println();
-//					////
-					while ((!trySend(socket, packetToSend, genericRcvPacket, connection.getAddress())) || (verifyAck(genericRcvPacket).getACK() != (byte) 1) || (verifyAck(genericRcvPacket).getAckNum() != temp.getSeqNum())) {
-//						System.out.println((verifyAck(genericRcvPacket).getACK()));// == (byte) 1));
-//						System.out.println((verifyAck(genericRcvPacket).getAckNum()));// == temp.getSeqNum()));
-//						System.out.println(temp.getSeqNum());
-//						System.out.println("loop");
-					}
-					//System.out.println("COUNT IS " + count);
+					while ((!trySend(socket, packetToSend, genericRcvPacket, connection.getAddress())) || (verifyAck(genericRcvPacket).getACK() != (byte) 1) || (verifyAck(genericRcvPacket).getAckNum() != temp.getSeqNum())) {}
 					count++;
 				}
 				return true;
@@ -334,18 +303,8 @@ public class server {
 					sz = Files.readAllBytes(fnameFile.toPath()).length;
 					fileData = new byte[sz];
 					fileData = Files.readAllBytes(fnameFile.toPath());
-//					////
-//					System.out.println("DATA SIZE = " + sz);
-//					System.out.println("BYTE ARRAY");
-//					for (int q = 0; q < sz; q++) {
-//						System.out.print(fileData[q]);
-//					}
-//					System.out.println();
-//					////
 					loopflag = false;
-				} catch (Exception e) {
-				//	System.out.println("check6 " + e);
-				}			//RISK OF INFINITE LOOP!!!!!!!!!!!!!!
+				} catch (Exception e) {}			//RISK OF INFINITE LOOP!!!!!!!!!!!!!!
 			}
 			int intFileIndex = 0;
 			int maxDataPerPacket = Packet.MAXDATASIZE;
@@ -356,24 +315,12 @@ public class server {
 				intFileIndex += temp.length;
 				Packet tempPacket = new Packet(rcvPacket.getSessionID(), 0, 0, (byte) 0, (byte) 1, (byte) 0, (byte) 0, (byte) 1, connection.getRcvWind(), temp, temp.length);
 				packetStream.add(tempPacket);
-				//System.out.println("pssize " + packetStream.size());
 			}
 			packetStream.add(endOfFilePacket);
 			System.out.println("pssize " + packetStream.size());
-			/////////////////
-			for (int i = 0; i < packetStream.size(); i++) {
-//				System.out.println("SPECIAL BYTE ARRAY");
-//				for (int q = 0; q < packetStream.get(i).getDataSize(); q++) {
-//					System.out.print(packetStream.get(i).getData()[q]);
-//				}
-//				System.out.println();
-			}
-			////////////////
 			return packetStream;
 		} else {
-			//System.out.println("file does not exist");
 			packetStream.add(endOfFilePacket);
-		//	System.out.println("pssize for no file " + packetStream.size());
 			return packetStream;
 		}
 	}

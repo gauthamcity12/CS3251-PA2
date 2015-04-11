@@ -303,8 +303,18 @@ public class server {
 					sz = Files.readAllBytes(fnameFile.toPath()).length;
 					fileData = new byte[sz];
 					fileData = Files.readAllBytes(fnameFile.toPath());
+//					////
+//					System.out.println("DATA SIZE = " + sz);
+//					System.out.println("BYTE ARRAY");
+//					for (int q = 0; q < sz; q++) {
+//						System.out.print(fileData[q]);
+//					}
+//					System.out.println();
+//					////
 					loopflag = false;
-				} catch (Exception e) {}			//RISK OF INFINITE LOOP!!!!!!!!!!!!!!
+				} catch (Exception e) {
+				//	System.out.println("check6 " + e);
+				}			//RISK OF INFINITE LOOP!!!!!!!!!!!!!!
 			}
 			int intFileIndex = 0;
 			int maxDataPerPacket = Packet.MAXDATASIZE;
@@ -315,12 +325,24 @@ public class server {
 				intFileIndex += temp.length;
 				Packet tempPacket = new Packet(rcvPacket.getSessionID(), 0, 0, (byte) 0, (byte) 1, (byte) 0, (byte) 0, (byte) 1, connection.getRcvWind(), temp, temp.length);
 				packetStream.add(tempPacket);
+				//System.out.println("pssize " + packetStream.size());
 			}
 			packetStream.add(endOfFilePacket);
 			System.out.println("pssize " + packetStream.size());
+			/////////////////
+			for (int i = 0; i < packetStream.size(); i++) {
+//				System.out.println("SPECIAL BYTE ARRAY");
+//				for (int q = 0; q < packetStream.get(i).getDataSize(); q++) {
+//					System.out.print(packetStream.get(i).getData()[q]);
+//				}
+//				System.out.println();
+			}
+			////////////////
 			return packetStream;
 		} else {
+			//System.out.println("file does not exist");
 			packetStream.add(endOfFilePacket);
+		//	System.out.println("pssize for no file " + packetStream.size());
 			return packetStream;
 		}
 	}
