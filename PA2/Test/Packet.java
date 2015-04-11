@@ -16,7 +16,7 @@ public class Packet {  //DAMAGE LINE
 	private int dataSize;
 	private static MessageDigest hash;
 	private byte[] digest = new byte[16];
-	private byte[] data = new byte[MAXPACKETSIZE - 37];					//CHECK SIZE AND TYPE FOR THIS VARIABLE
+	private byte[] data = new byte[MAXDATASIZE];					//CHECK SIZE AND TYPE FOR THIS VARIABLE
 	protected static final int MAXPACKETSIZE = 65500;
 	protected static final int MAXDATASIZE = MAXPACKETSIZE - 41;
 

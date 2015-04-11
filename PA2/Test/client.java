@@ -2,6 +2,7 @@ import java.net.*;
 import java.nio.*;
 import java.nio.file.*;
 import java.security.MessageDigest;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Random;
 import java.io.*;
@@ -60,6 +61,7 @@ public class client {
 		System.out.println("Client binding to " + ownPort + " and sending to " + serverIP + ":" + serverPort);
 
 		//connect to server
+		System.out.println("ABOUT TO CONNECT");
 		if (clientUser.connect(serverIP, serverPort, socket)) {
 			System.out.println("Successfully connected to server application.");
 		} else {
@@ -68,17 +70,25 @@ public class client {
 		}
 		
 		////DELETE THIS LATER//////////
-		if (clientUser.send((byte) 1, "test.pdf", socket)) {
-			System.out.println("Successful send");
+		System.out.println("ABOUT TO GET");
+		if (clientUser.send((byte) 0, "test.pdf", socket)) {
+			System.out.println("Successful get");
 		} else {
-			System.out.println("Failed to send");
+			System.out.println("Failed to get");
+		}
+		/////////////////////////////
+		
+		////DELETE THIS LATER//////////
+		System.out.println("ABOUT TO POST");
+		if (clientUser.send((byte) 1, "posttest.pdf", socket)) {
+			System.out.println("Successful post");
+		} else {
+			System.out.println("Failed to post");
 		}
 		/////////////////////////////
 		
 		/////DELETE THIS LATER//////
-		for(int i = 0; i < 1000; i++) {
-			System.out.print("");
-		}
+		System.out.println("ABOUT TO CLOSE");
 		if (clientUser.close(clientUser.connection.getSessionID(), socket)) {
 			System.out.println("Successfully close with server application.");
 		} else {
@@ -320,25 +330,88 @@ public class client {
 					return false; //will never happen
 				}
 			} while (true);
-		} catch (Exception e) {
+		} catch (Exception e) { //should never happen
 			System.out.println("Error making file: " + e);
 			return false;
 		}
 	}
 	
 	public boolean send(byte flag, String filenameArg, DatagramSocket socket) {
-		byte[] data = filenameArg.getBytes();
-		if (data.length > Packet.MAXDATASIZE) {
-			System.out.println("File name is too long.");	//this would be absurd for a file name
-		}
-		Packet sendDataPacket = new Packet(this.connection.getSessionID(), this.connection.getSeqNum(), 47, (byte) 1, (byte) 0, (byte) 0, (byte) 0, (byte) 0, connection.getRcvWind(), data, data.length);
-		DatagramPacket sendPacket = new DatagramPacket(sendDataPacket.toArray(), sendDataPacket.toArray().length, connection.getAddress(), connection.getPort());
-		this.connection.setSeqNum(this.connection.getSeqNum() + 1);
-		
-		if (trySend(socket, sendPacket, this.connection.getAddress(), this.connection, filenameArg)) { //DAMAGE LINE
+		if (flag == 0) { //GET request
+			byte[] data = filenameArg.getBytes();
+			if (data.length > Packet.MAXDATASIZE) {
+				System.out.println("File name is too long.");	//this would be absurd for a file name
+			}
+			Packet sendDataPacket = new Packet(this.connection.getSessionID(), this.connection.getSeqNum(), 47, (byte) 1, (byte) 0, (byte) 0, (byte) 0, (byte) 0, connection.getRcvWind(), data, data.length);
+			DatagramPacket sendPacket = new DatagramPacket(sendDataPacket.toArray(), sendDataPacket.toArray().length, connection.getAddress(), connection.getPort());
+			this.connection.setSeqNum(this.connection.getSeqNum() + 1); //should we increment here
+			
+			if (trySend(socket, sendPacket, this.connection.getAddress(), this.connection, filenameArg)) { //DAMAGE LINE
+				return true;
+			}
+			return false;
+		} else { //POST data
+			byte[] data = filenameArg.getBytes();
+			if (data.length > Packet.MAXDATASIZE) {
+				System.out.println("File name is too long.");	//this would be absurd for a file name
+			}
+			Packet sendDataPacket = new Packet(this.connection.getSessionID(), this.connection.getSeqNum(), 47, (byte) 0, (byte) 1, (byte) 0, (byte) 0, (byte) 0, connection.getRcvWind(), data, data.length);
+			ArrayList<Packet> toSend = retrieveFile(filenameArg, connection);
+			toSend.add(0, sendDataPacket);
+			System.out.println("TSS: " + toSend.size());
+			while (!toSend.isEmpty()) {
+				Packet temp = toSend.remove(0);
+				temp.setSeqNum(connection.getSeqNum());
+				connection.setSeqNum(connection.getSeqNum() + 1);
+				temp.setRcvWind(connection.getRcvWind());
+				DatagramPacket packetToSend = new DatagramPacket(temp.toArray(), temp.toArray().length, connection.getAddress(), connection.getPort());
+				DatagramPacket genericRcvPacket = new DatagramPacket(new byte[Packet.MAXPACKETSIZE], Packet.MAXPACKETSIZE);
+				while ((!trySend(socket, packetToSend, genericRcvPacket, connection.getAddress())) || (verifyAck(genericRcvPacket).getACK() != (byte) 1) || (verifyAck(genericRcvPacket).getAckNum() != temp.getSeqNum())) {
+					System.out.println("HSGDFFGSD");
+					System.out.println("ACK bit 1 v. " + verifyAck(genericRcvPacket).getACK());
+					System.out.println("ACK num " + temp.getSeqNum() + " v. " + verifyAck(genericRcvPacket).getAckNum());
+				}
+			}
 			return true;
 		}
-		return false;
+	}
+	
+	private ArrayList<Packet> retrieveFile(String filename, Connection connection) { //seq & ack numbers & rcvWind are not set and should be before they are sent
+		ArrayList<Packet> packetStream = new ArrayList<>(); //will be returned
+		
+		Packet endOfFilePacket = new Packet(connection.getSessionID(), 0, 0, (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 0, connection.getRcvWind(), new byte[0], 0);
+		
+		File fnameFile = new File(filename);
+		boolean loopflag = true;
+		byte[] fileData = new byte[0];
+		int sz = 0;
+		if (Files.exists(fnameFile.toPath(), LinkOption.NOFOLLOW_LINKS)) {
+			//System.out.println("check1");
+			while (loopflag) {
+				try {
+					sz = Files.readAllBytes(fnameFile.toPath()).length;
+					fileData = new byte[sz];
+					fileData = Files.readAllBytes(fnameFile.toPath());
+					loopflag = false;
+				} catch (Exception e) {}			//RISK OF INFINITE LOOP!!!!!!!!!!!!!!
+			}
+			int intFileIndex = 0;
+			int maxDataPerPacket = Packet.MAXDATASIZE;
+			int numPackets = (sz / maxDataPerPacket) + 1;
+			System.out.println("NP: " + numPackets);
+			for (int i = 0; i < numPackets; i++) {
+				byte[] temp = new byte[Math.min(maxDataPerPacket, sz - intFileIndex)];
+				System.arraycopy(fileData, intFileIndex, temp, 0, temp.length);
+				intFileIndex += temp.length;
+				Packet tempPacket = new Packet(connection.getSessionID(), 0, 0, (byte) 0, (byte) 1, (byte) 0, (byte) 0, (byte) 0, connection.getRcvWind(), temp, temp.length);
+				packetStream.add(tempPacket);
+			}
+			packetStream.add(endOfFilePacket);
+			return packetStream;
+		} else {
+			packetStream.add(endOfFilePacket);
+			return packetStream;
+		}
 	}
 	
 	private static void writeDataToFile(String filename, byte[] dataToWrite, Connection connection, DataOutputStream dataOutStream) {
