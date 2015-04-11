@@ -185,10 +185,10 @@ public class client {
 		//Taken from http://stackoverflow.com/questions/5513152/easy-way-to-concatenate-two-byte-arrays
 		byte[] aboutToHash = new byte[anotherTemp.length + tempPack.getDataSize()];
 		System.arraycopy(anotherTemp, 0, aboutToHash, 0, anotherTemp.length);
-		System.arraycopy(tempPack.getData(), 0, aboutToHash, anotherTemp.length, tempPack.getDataSize());
+		System.arraycopy(tempPack.getData(), 0, aboutToHash, anotherTemp.length, tempPack.getData().length);
 		byte[] checkHash = hash.digest(aboutToHash);
 		return Arrays.equals(rcvHash, checkHash);
-		//return true;
+		return true;
 	}
 	
 	private static boolean trySend(DatagramSocket socket, DatagramPacket sendP, DatagramPacket rcvP, InetAddress address) {

@@ -161,33 +161,34 @@ public class client {
 	}
 
 	private static boolean checkHash(DatagramPacket pack) {
-//		Packet tempPack = verifyAck(pack);
-//		byte[] rcvHash = tempPack.getHash();
-//		
-//		MessageDigest hash;
-//		try {
-//			hash = MessageDigest.getInstance("MD5");
-//		} catch (java.security.NoSuchAlgorithmException e) {
-//			return false;
-//		}
-//		ByteBuffer temp = ByteBuffer.allocate(25);
-//		temp.putInt(tempPack.getSessionID());
-//		temp.putInt(tempPack.getSeqNum());
-//		temp.putInt(tempPack.getAckNum());
-//		temp.put(tempPack.getGET());
-//		temp.put(tempPack.getPOST());
-//		temp.put(tempPack.getFIN());
-//		temp.put(tempPack.getSYN());
-//		temp.put(tempPack.getACK());
-//		temp.putInt(tempPack.getRcvWind());
-//		byte[] anotherTemp = temp.array();
-//		//Taken from http://stackoverflow.com/questions/5513152/easy-way-to-concatenate-two-byte-arrays
-//		byte[] aboutToHash = new byte[anotherTemp.length + tempPack.getData().length];
-//		System.arraycopy(anotherTemp, 0, aboutToHash, 0, anotherTemp.length);
-//		System.arraycopy(tempPack.getData(), 0, aboutToHash, anotherTemp.length, tempPack.getData().length);
-//		byte[] checkHash = hash.digest(aboutToHash);
-//		return Arrays.equals(rcvHash, checkHash);
-		return true;
+		Packet tempPack = verifyAck(pack);
+		byte[] rcvHash = tempPack.getHash();
+		
+		MessageDigest hash;
+		try {
+			hash = MessageDigest.getInstance("MD5");
+		} catch (java.security.NoSuchAlgorithmException e) {
+			return false;
+		}
+		ByteBuffer temp = ByteBuffer.allocate(25);
+		temp.putInt(tempPack.getSessionID());
+		temp.putInt(tempPack.getSeqNum());
+		temp.putInt(tempPack.getAckNum());
+		temp.put(tempPack.getGET());
+		temp.put(tempPack.getPOST());
+		temp.put(tempPack.getFIN());
+		temp.put(tempPack.getSYN());
+		temp.put(tempPack.getACK());
+		temp.putInt(tempPack.getRcvWind());
+		temp.putInt(tempPack.getDataSize());
+		byte[] anotherTemp = temp.array();
+		//Taken from http://stackoverflow.com/questions/5513152/easy-way-to-concatenate-two-byte-arrays
+		byte[] aboutToHash = new byte[anotherTemp.length + tempPack.getDataSize()];
+		System.arraycopy(anotherTemp, 0, aboutToHash, 0, anotherTemp.length);
+		System.arraycopy(tempPack.getData(), 0, aboutToHash, anotherTemp.length, tempPack.getDataSize());
+		byte[] checkHash = hash.digest(aboutToHash);
+		return Arrays.equals(rcvHash, checkHash);
+		//return true;
 	}
 	
 	private static boolean trySend(DatagramSocket socket, DatagramPacket sendP, DatagramPacket rcvP, InetAddress address) {

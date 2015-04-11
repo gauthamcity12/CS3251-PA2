@@ -51,9 +51,9 @@ public class Packet {  //DAMAGE LINE
 		temp.putInt(this.dataSize);
 		byte[] anotherTemp = temp.array();
 		//Taken from http://stackoverflow.com/questions/5513152/easy-way-to-concatenate-two-byte-arrays
-		byte[] aboutToHash = new byte[anotherTemp.length + data.length];
+		byte[] aboutToHash = new byte[anotherTemp.length + dataSize];
 		System.arraycopy(anotherTemp, 0, aboutToHash, 0, anotherTemp.length);
-		System.arraycopy(data, 0, aboutToHash, anotherTemp.length, data.length);
+		System.arraycopy(data, 0, aboutToHash, anotherTemp.length, dataSize);
 //		System.out.println("CORRECT BB: " + temp.toString());
 //		System.out.println("CORRECT: " + sessionID);
 //		System.out.println("CORRECT: " + seqNum);

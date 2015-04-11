@@ -157,9 +157,9 @@ public class server {
 		temp.putInt(tempPack.getDataSize());
 		byte[] anotherTemp = temp.array();
 		//Taken from http://stackoverflow.com/questions/5513152/easy-way-to-concatenate-two-byte-arrays
-		byte[] aboutToHash = new byte[anotherTemp.length + tempPack.getDataSize()];
+		byte[] aboutToHash = new byte[anotherTemp.length + tempPack.getData().length];
 		System.arraycopy(anotherTemp, 0, aboutToHash, 0, anotherTemp.length);
-		System.arraycopy(tempPack.getData(), 0, aboutToHash, anotherTemp.length, tempPack.getDataSize());
+		System.arraycopy(tempPack.getData(), 0, aboutToHash, anotherTemp.length, tempPack.getData().length);
 		byte[] checkHash = hash.digest(aboutToHash);
 //		System.out.println("CHECK BB: " + temp.toString());
 //		System.out.println("CHECK: " + tempPack.getSessionID());
@@ -176,7 +176,7 @@ public class server {
 //		System.out.println("RCV: " + rcvHash);
 //		System.out.println("CHE: " + checkHash);
 		return Arrays.equals(rcvHash, checkHash);
-		//return true;
+		return true;
 	}
 	
 	private static boolean tryReceive(DatagramSocket socket, DatagramPacket rcvP, InetAddress address) {

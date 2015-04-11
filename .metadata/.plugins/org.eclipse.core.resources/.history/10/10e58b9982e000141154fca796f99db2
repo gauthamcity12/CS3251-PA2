@@ -176,7 +176,7 @@ public class server {
 //		System.out.println("RCV: " + rcvHash);
 //		System.out.println("CHE: " + checkHash);
 		return Arrays.equals(rcvHash, checkHash);
-		//return true;
+		return true;
 	}
 	
 	private static boolean tryReceive(DatagramSocket socket, DatagramPacket rcvP, InetAddress address) {
