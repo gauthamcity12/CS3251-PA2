@@ -58,116 +58,75 @@ public class client {
 			System.exit(1);
 		}
 		
-		Scanner scan = new Scanner(System.in);	//create scanner for reading in commands
+		//InputStreamReader algorithm from http://stackoverflow.com/questions/7872846/how-to-read-from-standard-input-non-blocking
 		
 		while (true) {
-			if (scan.hasNext()) {
-				String next = scan.next();
-				if (next.equals("connect")) {
-					scan.nextLine(); //move to end of line
-					if (clientUser.connect(serverIP, serverPort, socket)) {
-						System.out.println("Successfully connected to server application.");
-						connectFlag = true;
-					} else {
-						System.out.println("Could not connect to server application. Please try again.");
-						System.exit(1);
-					}
-					while (connectFlag) {
-						if (scan.hasNext()) {
-							next = scan.next();
-							if (next.equals("get")) {
-								if (scan.hasNext()) {
-									String file = scan.next();
-									if (clientUser.send((byte) 0, file, socket)) {
-										System.out.println("Successful get");
-									} else {
-										System.out.println("Failed to get");
-									}
-								} else {
-									System.out.println("Please include the name of a file you wish to request.");
-								}
-							} else if (next.equals("post")) {
-								if (scan.hasNext()) {
-									String file = scan.next();
-									if (clientUser.send((byte) 1, file, socket)) {
-										System.out.println("Successful post");
-									} else {
-										System.out.println("Failed to post");
-									}
-								} else {
-									System.out.println("Please include the name of a file you wish to send.");
-								}
-							} else if (next.equals("disconnect")) {
-								if (clientUser.close(clientUser.connection.getSessionID(), socket)) {
-									System.out.println("Successfully close with server application.");
-									connectFlag = false;
-								} else {
-									System.out.println("Could not close with server application.");
-								}
-							} else {
-								System.out.println("You have not entered a valid command\nPlease type the \"get\", \"post\", or \"disconnect\" commands.");
-							}
-							scan.nextLine(); //move to end of line
+			InputStreamReader inStream = new InputStreamReader(System.in);	//create stream for reading in commands
+			BufferedReader reader = new BufferedReader(inStream);
+			boolean ready = false;
+			try {
+				ready = reader.ready();
+			} catch (Exception e) {
+				ready = false;
+			}
+			if (ready) {
+				try {
+					String next = reader.readLine();
+					if ((next.length() >= 7) && (next.substring(0, 7)).equals("connect")) {
+						if (clientUser.connect(serverIP, serverPort, socket)) {
+							System.out.println("Successfully connected to server application.");
+							connectFlag = true;
 						} else {
-							if (!clientUser.receive(socket)) {
-								connectFlag = false;
+							System.out.println("Could not connect to server application. Please try again.");
+							System.exit(1);
+						}
+						while (connectFlag) {
+							boolean insideReady = false;
+							try {
+								insideReady = reader.ready();
+							} catch (Exception e) {
+								insideReady = false;
+							}
+							if (insideReady) {
+								try {
+									next = reader.readLine();
+									if ((next.length() >= 5) && (next.substring(0, 4)).equals("get ")) {
+										String file = next.substring(4);
+										if (clientUser.send((byte) 0, file, socket)) {
+											System.out.println("GET functioned properly");
+										} else {
+											System.out.println("Failed to get");
+										}
+									} else if ((next.length() >= 6) && (next.substring(0, 5)).equals("post ")) {
+										String file = next.substring(5);
+										if (clientUser.send((byte) 1, file, socket)) {
+											System.out.println("POST functioned properly");
+										} else {
+											System.out.println("Failed to post");
+										}
+									} else if ((next.length() >= 10) && (next.substring(0, 10)).equals("disconnect")) {
+										if (clientUser.close(clientUser.connection.getSessionID(), socket)) {
+											System.out.println("Successfully close with server application.");
+											connectFlag = false;
+										} else {
+											System.out.println("Could not close with server application.");
+										}
+									} else {
+										System.out.println("You have not entered a valid command.  Options are\nget <file>\npost <file>\nterminate.");
+									}
+								} catch (Exception e) {}
+							} else {
+								if (!clientUser.receive(socket)) {
+									connectFlag = false;
+								}
 							}
 						}
+					} else {
+						System.out.println("You have not established a connection.\nPlease type the \"connect\" command to do so.");
 					}
-				} else {
-					System.out.println("You have not established a connection.\nPlease type the \"connect\" command to do so.");
-				}
+				} catch (Exception e) {}
 			}
 		}
-		
-		//FINISH MAIN METHOD CODE HERE
-		
-		/*
-		 * while loop until close (Then go to idle situation to await connection) {
-		 * 		check and interpret scanner input
-		 * 		make a non-blocking receive call to check for incoming
-		 * 		catch block for timeouts (not needed with SNW))
-		 * }
-		 */
-		
-//		System.out.println("Client binding to " + ownPort + " and sending to " + serverIP + ":" + serverPort);
-//
-//		//connect to server
-//		System.out.println("ABOUT TO CONNECT");
-//		if (clientUser.connect(serverIP, serverPort, socket)) {
-//			System.out.println("Successfully connected to server application.");
-//		} else {
-//			System.out.println("Could not connect to server application. Please try again.");
-//			System.exit(1);
-//		}
-//		
-//		////DELETE THIS LATER//////////
-//		System.out.println("ABOUT TO GET");
-//		if (clientUser.send((byte) 0, "test.pdf", socket)) {
-//			System.out.println("Successful get");
-//		} else {
-//			System.out.println("Failed to get");
-//		}
-//		/////////////////////////////
-//		
-//		////DELETE THIS LATER//////////
-//		System.out.println("ABOUT TO POST");
-//		if (clientUser.send((byte) 1, "posttest.pdf", socket)) {
-//			System.out.println("Successful post");
-//		} else {
-//			System.out.println("Failed to post");
-//		}
-//		/////////////////////////////
-//		
-//		/////DELETE THIS LATER//////
-//		System.out.println("ABOUT TO CLOSE");
-//		if (clientUser.close(clientUser.connection.getSessionID(), socket)) {
-//			System.out.println("Successfully close with server application.");
-//		} else {
-//			System.out.println("Could not close with server application.");
-//			System.exit(1);
-//		}
-//		//////////////////////////
 	}
 
 	
@@ -177,11 +136,9 @@ public class client {
 	}
 	
 	//CHECK SEQ/ACK NUMS and MD5
-	public boolean connect(InetAddress address, int port, DatagramSocket socket) { //HANDLE SIMULTANEOUS SYN PACKETS?
+	public boolean connect(InetAddress address, int port, DatagramSocket socket) {
 		int session1 = rand.nextInt();
-		//System.out.println("///////////////////");
 		Packet SYNDataPacket = new Packet(0, session1, 0, (byte) 0, (byte) 0, (byte) 0, (byte) 1, (byte) 0, 32000, new byte[0], 0);
-		//System.out.println("///////////////////");
 		DatagramPacket SYNpacket = new DatagramPacket(SYNDataPacket.toArray(), SYNDataPacket.toArray().length, address, port);
 		DatagramPacket SYNACKrcvPacket = new DatagramPacket(new byte[SYNDataPacket.toArray().length], SYNDataPacket.toArray().length);
 		
@@ -254,14 +211,11 @@ public class client {
 		do {
 			try {
 				socket.setSoTimeout(TIMEOUT);
-				System.out.println("about to UDP send");
 				socket.send(sendP);
-				System.out.println("about to UDP receive");
 				socket.receive(rcvP);
 				if (!rcvP.getAddress().equals(address)) { //Check source for received packet
 					throw new IOException("Received packet was from unknown source");
 				}
-				System.out.println("UDP received");
 				receivedResponse = true;
 			} catch (InterruptedIOException e) {
 				tries += 1;
@@ -331,7 +285,6 @@ public class client {
 			do {
 				try {
 					socket.setSoTimeout(TIMEOUT);
-					System.out.println("trySend within trySend");
 					trySend(socket, sendP, rcvP, address);
 					if (!rcvP.getAddress().equals(address)) { //Check source for received packet
 						throw new IOException("Received packet was from unknown source");
@@ -350,19 +303,19 @@ public class client {
 						}
 					}
 					int dsz = verifyAck(rcvP).getDataSize();
-					System.out.println("DATA SIZE = " + dsz);
 					byte[] data = new byte[dsz];
 					System.arraycopy(verifyAck(rcvP).getData(), 0, data, 0, dsz);
 					connect.addData(data);			//CHECK ON LENGTH!!!!!!!!!!!!???????????
 					writeDataToFile(filename, connect.getData(), connect, dataOutStream);
 					lastAck = verifyAck(rcvP).getSeqNum(); // seq # of the first data packet
 					lastSeq = verifyAck(rcvP).getAckNum();
+					connect.setAckNum(verifyAck(rcvP).getSeqNum());
+					connect.setSeqNum(verifyAck(rcvP).getAckNum());
 					
-					System.out.println("check in trySend");
 					Packet ACKDataPacket = new Packet(verifyAck(sendP).getSessionID(), lastSeq++, lastAck, (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 1, connect.getRcvWind(), new byte[0], 0);
 					DatagramPacket ACKpacket = new DatagramPacket(ACKDataPacket.toArray(), ACKDataPacket.toArray().length, address, connect.getPort());
+					connect.setSeqNum(connect.getSeqNum()+1);
 					trySend(socket, ACKpacket);			//WHAT HAPPENS IF THIS DOES NOT ARRIVE???
-					System.out.println("check again in trySend");
 					
 					receivedResponse = true;
 				} catch (InterruptedIOException e) {
@@ -375,12 +328,10 @@ public class client {
 			if (tries >= MAXTRIES) return false;
 			Packet rcv = null;
 			do {
-				System.out.println("part 2 of trySend");
 				if (tryReceive(socket, rcvP, address)) {
 					rcv = verifyAck(rcvP);
 					if ((rcv.getGET() == 0) && (rcv.getPOST() == 0) && (rcv.getSYN() == 0) && (rcv.getFIN() == 0) && (rcv.getACK() == 0)) {
 						Packet ACKFDataPacket = new Packet(verifyAck(sendP).getSessionID(), lastSeq++, (lastAck = rcv.getSeqNum()), (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 1, connect.getRcvWind(), new byte[0], 0);
-						System.out.println("about to trysend in part 2");
 						DatagramPacket ACKFpacket = new DatagramPacket(ACKFDataPacket.toArray(), ACKFDataPacket.toArray().length, address, connect.getPort());
 						trySend(socket, ACKFpacket);			//NEED TO LOOP?????
 						connect.setAckNum(lastAck);				//CHECK ON SETTING THIS AT OTHER RETURNS
@@ -398,14 +349,16 @@ public class client {
 								trySend(socket, ACKPacket, rcvP, address);
 							}
 						}
-						System.out.println("writing data in part 2");
 						connect.addData(data);			//CHECK ON LENGTH!!!!!!!!!!!!???????????
 						writeDataToFile(filename, connect.getData(), connect, dataOutStream);
 						lastAck = verifyAck(rcvP).getSeqNum();
 						lastSeq = verifyAck(rcvP).getAckNum(); //verifyAck(ACKPacket).getSeqNum(); // DOUBLE CHECK THIS // last SEQ # that was sent
+						connect.setAckNum(verifyAck(rcvP).getSeqNum());
+						connect.setSeqNum(verifyAck(rcvP).getAckNum());
+						
 						Packet ACKDataPacket = new Packet(verifyAck(sendP).getSessionID(), lastSeq++, lastAck, (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 1, connect.getRcvWind(), new byte[0], 0);
 						DatagramPacket ACKpacket = new DatagramPacket(ACKDataPacket.toArray(), ACKDataPacket.toArray().length, address, connect.getPort());
-						System.out.println("about to trysend in part 2");
+						connect.setSeqNum(connect.getSeqNum()+1);
 						trySend(socket, ACKpacket);
 					}
 				} else {
@@ -420,7 +373,6 @@ public class client {
 	
 	public boolean send(byte flag, String filenameArg, DatagramSocket socket) {
 		if (flag == 0) { //GET request
-			System.out.println(filenameArg);
 			byte[] data = filenameArg.getBytes();
 			if (data.length > Packet.MAXDATASIZE) {
 				System.out.println("File name is too long.");	//this would be absurd for a file name
@@ -429,9 +381,7 @@ public class client {
 			DatagramPacket sendPacket = new DatagramPacket(sendDataPacket.toArray(), sendDataPacket.toArray().length, connection.getAddress(), connection.getPort());
 			this.connection.setSeqNum(this.connection.getSeqNum() + 1); //should we increment here
 			
-			System.out.println("trySend");
 			if (trySend(socket, sendPacket, this.connection.getAddress(), this.connection, filenameArg)) { //DAMAGE LINE
-				System.out.println("GET worked");
 				return true;
 			}
 			return false;
@@ -447,7 +397,6 @@ public class client {
 				return true;
 			}
 			toSend.add(0, sendDataPacket);
-			System.out.println("TSS: " + toSend.size());
 			while (!toSend.isEmpty()) {
 				Packet temp = toSend.remove(0);
 				temp.setSeqNum(connection.getSeqNum());
@@ -455,11 +404,7 @@ public class client {
 				temp.setRcvWind(connection.getRcvWind());
 				DatagramPacket packetToSend = new DatagramPacket(temp.toArray(), temp.toArray().length, connection.getAddress(), connection.getPort());
 				DatagramPacket genericRcvPacket = new DatagramPacket(new byte[Packet.MAXPACKETSIZE], Packet.MAXPACKETSIZE);
-				while ((!trySend(socket, packetToSend, genericRcvPacket, connection.getAddress())) || (verifyAck(genericRcvPacket).getACK() != (byte) 1) || (verifyAck(genericRcvPacket).getAckNum() != temp.getSeqNum())) {
-					System.out.println("HSGDFFGSD");
-					System.out.println("ACK bit 1 v. " + verifyAck(genericRcvPacket).getACK());
-					System.out.println("ACK num " + temp.getSeqNum() + " v. " + verifyAck(genericRcvPacket).getAckNum());
-				}
+				while ((!trySend(socket, packetToSend, genericRcvPacket, connection.getAddress())) || (verifyAck(genericRcvPacket).getACK() != (byte) 1) || (verifyAck(genericRcvPacket).getAckNum() != temp.getSeqNum())) {}
 			}
 			return true;
 		}
@@ -475,7 +420,6 @@ public class client {
 		byte[] fileData = new byte[0];
 		int sz = 0;
 		if (Files.exists(fnameFile.toPath(), LinkOption.NOFOLLOW_LINKS)) {
-			//System.out.println("check1");
 			while (loopflag) {
 				try {
 					sz = Files.readAllBytes(fnameFile.toPath()).length;
@@ -487,7 +431,6 @@ public class client {
 			int intFileIndex = 0;
 			int maxDataPerPacket = Packet.MAXDATASIZE;
 			int numPackets = (sz / maxDataPerPacket) + 1;
-			System.out.println("NP: " + numPackets);
 			for (int i = 0; i < numPackets; i++) {
 				byte[] temp = new byte[Math.min(maxDataPerPacket, sz - intFileIndex)];
 				System.arraycopy(fileData, intFileIndex, temp, 0, temp.length);

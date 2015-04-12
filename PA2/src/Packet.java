@@ -54,18 +54,6 @@ public class Packet {  //DAMAGE LINE
 		byte[] aboutToHash = new byte[anotherTemp.length + dataSize];
 		System.arraycopy(anotherTemp, 0, aboutToHash, 0, anotherTemp.length);
 		System.arraycopy(data, 0, aboutToHash, anotherTemp.length, dataSize);
-//		System.out.println("CORRECT BB: " + temp.toString());
-//		System.out.println("CORRECT: " + sessionID);
-//		System.out.println("CORRECT: " + seqNum);
-//		System.out.println("CORRECT: " + ackNum);
-//		System.out.println("CORRECT: " + GET);
-//		System.out.println("CORRECT: " + POST);
-//		System.out.println("CORRECT: " + FIN);
-//		System.out.println("CORRECT: " + SYN);
-//		System.out.println("CORRECT: " + ACK);
-//		System.out.println("CORRECT: " + rcvWind);
-//		System.out.println("H: " + anotherTemp);
-//		System.out.println("D: " + data);
 		this.digest = hash.digest(aboutToHash);
 	}
 	
