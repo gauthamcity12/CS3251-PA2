@@ -255,26 +255,13 @@ public class Packet {  //DAMAGE LINE
 		return this.dataSize;
 	}
 
-	public byte[] recalculateHash() {
-		ByteBuffer temp = ByteBuffer.allocate(25);
-		temp.putInt(this.sessionID);
-		temp.putInt(this.seqNum);
-		temp.putInt(this.ackNum);
-		temp.put(this.GET);
-		temp.put(this.POST);
-		temp.put(this.FIN);
-		temp.put(this.SYN);
-		temp.put(this.ACK);
-		temp.putInt(this.rcvWind);
-		temp.putInt(this.dataSize);
-		byte[] anotherTemp = temp.array();
-		//Taken from http://stackoverflow.com/questions/5513152/easy-way-to-concatenate-two-byte-arrays
-		byte[] aboutToHash = new byte[anotherTemp.length + dataSize];
-		System.arraycopy(anotherTemp, 0, aboutToHash, 0, anotherTemp.length);
-		System.arraycopy(data, 0, aboutToHash, anotherTemp.length, dataSize);
-		this.digest = hash.digest(aboutToHash);
-		return this.digest;
-	}
+//	/**
+//	 * Sets new message digest
+//	 * @param md for new message digest
+//	 */
+//	public void setHash(MessageDigest md) {
+//		this.hash = md;
+//	}
 
 	/**
 	 * Gets message digest

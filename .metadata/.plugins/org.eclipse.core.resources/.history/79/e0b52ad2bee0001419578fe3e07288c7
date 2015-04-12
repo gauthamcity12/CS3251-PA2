@@ -644,7 +644,6 @@ public class client {
 						ACKFinalPacket.recalculateHash();
 						ACKFPacket = new DatagramPacket(ACKFinalPacket.toArray(), ACKFinalPacket.toArray().length, address, port);
 					} catch (Exception f) {
-						System.out.println("Could not close connection.");
 						return false;
 					}
 					if (rcvData[14] == checkVal) {
@@ -653,13 +652,11 @@ public class client {
 							connection = null;
 							return true;
 						}
-						System.out.println("Could not close connection.");
 						return false;
 					}
 				}
 			}
 		}
-		System.out.println("Could not close connection.");
 		return false;
 	}
 }

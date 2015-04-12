@@ -564,7 +564,7 @@ public class client {
 					ACKPacket = new DatagramPacket(ACKDataPacket.toArray(), ACKDataPacket.toArray().length, connection.getAddress(), connection.getPort());
 					connection.setAckNum(verifyAck(genericRcvPacket).getSeqNum());
 					connection.setSeqNum(connection.getSeqNum() + 1);
-					while (!trySend(socket, ACKPacket)) {}	//RISK OF INFINITE LOOP
+					while (!trySend(socket, ACKPacket)) {}
 					flag = false;
 					break;
 				}
@@ -620,8 +620,6 @@ public class client {
 			if (rcvData[16] == checkVal) {
 				Packet ACKFinalPacket = new Packet(ID, this.connection.getSeqNum(), verifyAck(rcvPacket).getSeqNum(), (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 1, this.connection.getRcvWind(), new byte[0], 0);
 				DatagramPacket ACKFPacket = new DatagramPacket(ACKFinalPacket.toArray(), ACKFinalPacket.toArray().length, address, port);
-				connection.setSeqNum(connection.getSeqNum() + 1);
-				connection.setAckNum(verifyAck(rcvPacket).getSeqNum());
 				
 				if (rcvData[14] == checkVal) {
 					if (trySend(socket, ACKFPacket)) {
@@ -629,7 +627,6 @@ public class client {
 						connection = null;
 						return true;
 					}
-					System.out.println("Could not close connection.");
 					return false;
 				} else {
 					rcvPacket = new DatagramPacket(new byte[FINDataPacket.toArray().length], FINDataPacket.toArray().length);
@@ -639,12 +636,8 @@ public class client {
 							throw new IOException("Received packet was from unknown source");
 						}
 						ACKFinalPacket.setAckNum(verifyAck(rcvPacket).getSeqNum());
-						connection.setAckNum(verifyAck(rcvPacket).getSeqNum());
-						ACKFinalPacket.setRcvWind(connection.getRcvWind());
-						ACKFinalPacket.recalculateHash();
 						ACKFPacket = new DatagramPacket(ACKFinalPacket.toArray(), ACKFinalPacket.toArray().length, address, port);
 					} catch (Exception f) {
-						System.out.println("Could not close connection.");
 						return false;
 					}
 					if (rcvData[14] == checkVal) {
@@ -653,13 +646,11 @@ public class client {
 							connection = null;
 							return true;
 						}
-						System.out.println("Could not close connection.");
 						return false;
 					}
 				}
 			}
 		}
-		System.out.println("Could not close connection.");
 		return false;
 	}
 }

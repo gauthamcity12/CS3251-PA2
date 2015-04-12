@@ -295,7 +295,7 @@ public class client {
 							return false;	//file does not exist
 						}
 						while ((verifyAck(rcvP).getACK() != 1) || (verifyAck(rcvP).getPOST() != 1) || (!checkHash(rcvP))) {
-							if ((verifyAck(rcvP).getGET() == 0) && (verifyAck(rcvP).getPOST() == 0) && (verifyAck(rcvP).getSYN() == 0) && (verifyAck(rcvP).getFIN() == 0) && (verifyAck(rcvP).getACK() == 0) && (checkHash(rcvP))) {
+							if ((verifyAck(rcvP).getGET() == 0) && (verifyAck(rcvP).getPOST() == 0) && (verifyAck(rcvP).getSYN() == 0) && (verifyAck(rcvP).getFIN() == 0) && (verifyAck(rcvP).getACK() == 0) && (!checkHash(rcvP))) {
 								System.out.println("File does not exist on the server.");
 								return false;	//file does not exist
 							}
@@ -330,10 +330,10 @@ public class client {
 			do {
 				if (tryReceive(socket, rcvP, address)) {
 					rcv = verifyAck(rcvP);
-					if ((rcv.getGET() == 0) && (rcv.getPOST() == 0) && (rcv.getSYN() == 0) && (rcv.getFIN() == 0) && (rcv.getACK() == 0) && (checkHash(rcvP))) {
+					if ((rcv.getGET() == 0) && (rcv.getPOST() == 0) && (rcv.getSYN() == 0) && (rcv.getFIN() == 0) && (rcv.getACK() == 0)) {
 						Packet ACKFDataPacket = new Packet(verifyAck(sendP).getSessionID(), lastSeq++, (lastAck = rcv.getSeqNum()), (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 1, connect.getRcvWind(), new byte[0], 0);
 						DatagramPacket ACKFpacket = new DatagramPacket(ACKFDataPacket.toArray(), ACKFDataPacket.toArray().length, address, connect.getPort());
-						while (!trySend(socket, ACKFpacket)) {}			//RISK OF INFINITE LOOP!!!!!!!!!!!!!!!!!!!!!
+						trySend(socket, ACKFpacket);			//NEED TO LOOP?????
 						connect.setAckNum(lastAck);				//CHECK ON SETTING THIS AT OTHER RETURNS
 						connect.setSeqNum(lastSeq + 1);
 						return true;
@@ -342,7 +342,7 @@ public class client {
 						byte[] data = new byte[dsz];
 						System.arraycopy(verifyAck(rcvP).getData(), 0, data, 0, dsz);
 						DatagramPacket ACKPacket = null;
-						if ((verifyAck(rcvP).getACK() != 1) || (verifyAck(rcvP).getPOST() != 1) || (verifyAck(rcvP).getSeqNum() != lastAck + 1) || (!checkHash(rcvP))) { // re-ACK 
+						if ((verifyAck(rcvP).getACK() != 1) || (verifyAck(rcvP).getPOST() != 1) || (verifyAck(rcvP).getSeqNum() != lastAck + 1)) { // re-ACK 
 							Packet ACKDataPacket = new Packet(verifyAck(rcvP).getSessionID(), lastSeq, lastAck, (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 1, verifyAck(sendP).getRcvWind(), new byte[0], 0);
 							ACKPacket = new DatagramPacket(ACKDataPacket.toArray(), ACKDataPacket.toArray().length, address, connect.getPort());
 							while ((verifyAck(rcvP).getACK() != 1) || (verifyAck(rcvP).getPOST() != 1) || (verifyAck(rcvP).getSeqNum() != lastAck + 1)) {
@@ -359,7 +359,7 @@ public class client {
 						Packet ACKDataPacket = new Packet(verifyAck(sendP).getSessionID(), lastSeq++, lastAck, (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 1, connect.getRcvWind(), new byte[0], 0);
 						DatagramPacket ACKpacket = new DatagramPacket(ACKDataPacket.toArray(), ACKDataPacket.toArray().length, address, connect.getPort());
 						connect.setSeqNum(connect.getSeqNum()+1);
-						while (!trySend(socket, ACKpacket)) {} //RISK OF INFINITE LOOP
+						trySend(socket, ACKpacket);
 					}
 				} else {
 					return false; //will never happen
@@ -402,10 +402,9 @@ public class client {
 				temp.setSeqNum(connection.getSeqNum());
 				connection.setSeqNum(connection.getSeqNum() + 1);
 				temp.setRcvWind(connection.getRcvWind());
-				temp.recalculateHash();
 				DatagramPacket packetToSend = new DatagramPacket(temp.toArray(), temp.toArray().length, connection.getAddress(), connection.getPort());
 				DatagramPacket genericRcvPacket = new DatagramPacket(new byte[Packet.MAXPACKETSIZE], Packet.MAXPACKETSIZE);
-				while ((!trySend(socket, packetToSend, genericRcvPacket, connection.getAddress())) || (verifyAck(genericRcvPacket).getACK() != (byte) 1) || (verifyAck(genericRcvPacket).getAckNum() != temp.getSeqNum()) || (!checkHash(genericRcvPacket))) {}
+				while ((!trySend(socket, packetToSend, genericRcvPacket, connection.getAddress())) || (verifyAck(genericRcvPacket).getACK() != (byte) 1) || (verifyAck(genericRcvPacket).getAckNum() != temp.getSeqNum())) {}
 			}
 			return true;
 		}
@@ -518,10 +517,9 @@ public class client {
 					connection.setAckNum(verifyAck(genericRcvPacket).getSeqNum());
 					temp.setAckNum(connection.getAckNum());
 					temp.setRcvWind(connection.getRcvWind());
-					temp.recalculateHash();
 					DatagramPacket packetToSend = new DatagramPacket(temp.toArray(), temp.toArray().length, connection.getAddress(), connection.getPort());
 					genericRcvPacket = new DatagramPacket(new byte[Packet.MAXPACKETSIZE], Packet.MAXPACKETSIZE);
-					while ((!trySend(socket, packetToSend, genericRcvPacket, connection.getAddress())) || (verifyAck(genericRcvPacket).getACK() != (byte) 1) || (verifyAck(genericRcvPacket).getAckNum() != temp.getSeqNum()) || (!checkHash(genericRcvPacket))) {}
+					while ((!trySend(socket, packetToSend, genericRcvPacket, connection.getAddress())) || (verifyAck(genericRcvPacket).getACK() != (byte) 1) || (verifyAck(genericRcvPacket).getAckNum() != temp.getSeqNum())) {}
 				}
 				return true;
 			} else if (verifyAck(genericRcvPacket).getPOST() == (byte) 1) {	//server sends POST data packet
@@ -529,6 +527,7 @@ public class client {
 				byte[] fnameArray = new byte[dsz];
 				System.arraycopy(verifyAck(genericRcvPacket).getData(), 0, fnameArray, 0, dsz);
 				String filename = new String(fnameArray);
+				//File fnameFile = new File(filename);
 				Packet ACKDataPacket = new Packet(connection.getSessionID(), connection.getSeqNum(), verifyAck(genericRcvPacket).getSeqNum(), (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 1, connection.getRcvWind(), new byte[0], 0);
 				DatagramPacket ACKPacket = new DatagramPacket(ACKDataPacket.toArray(), ACKDataPacket.toArray().length, connection.getAddress(), connection.getPort());
 				connection.setSeqNum(connection.getSeqNum() + 1);
@@ -553,18 +552,19 @@ public class client {
 	private static boolean downloadPostedFile(String filename, DatagramPacket ACKPacket, Connection connection, DatagramSocket socket) {
 		DatagramPacket genericRcvPacket = new DatagramPacket(new byte[Packet.MAXPACKETSIZE], Packet.MAXPACKETSIZE);
 		while (!trySend(socket, ACKPacket, genericRcvPacket, connection.getAddress())) {} //POSSIBLE INFINITE LOOP
+		//UPDATE SYN AND ACK NUMBERS!!!!!!!!!!!!!!
 		Packet ACKDataPacket = null;
 		try {
 			//DataOutputStream algorithm from http://stackoverflow.com/questions/12977290/write-and-read-multiple-byte-in-file-with-java
 			DataOutputStream dataOutStream = new DataOutputStream(new FileOutputStream(new File(filename)));
 			boolean flag = true;
 			while (flag) {
-				if ((verifyAck(genericRcvPacket).getGET() == 0) && (verifyAck(genericRcvPacket).getPOST() == 0) && (verifyAck(genericRcvPacket).getSYN() == 0) && (verifyAck(genericRcvPacket).getFIN() == 0) && (verifyAck(genericRcvPacket).getACK() == 0) && (checkHash(genericRcvPacket))) {
+				if ((verifyAck(genericRcvPacket).getGET() == 0) && (verifyAck(genericRcvPacket).getPOST() == 0) && (verifyAck(genericRcvPacket).getSYN() == 0) && (verifyAck(genericRcvPacket).getFIN() == 0) && (verifyAck(genericRcvPacket).getACK() == 0)) {
 					ACKDataPacket = new Packet(connection.getSessionID(), connection.getSeqNum(), verifyAck(genericRcvPacket).getSeqNum(), (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 1, connection.getRcvWind(), new byte[0], 0);
 					ACKPacket = new DatagramPacket(ACKDataPacket.toArray(), ACKDataPacket.toArray().length, connection.getAddress(), connection.getPort());
 					connection.setAckNum(verifyAck(genericRcvPacket).getSeqNum());
 					connection.setSeqNum(connection.getSeqNum() + 1);
-					while (!trySend(socket, ACKPacket)) {}	//RISK OF INFINITE LOOP
+					while (!trySend(socket, ACKPacket)) {}
 					flag = false;
 					break;
 				}
@@ -620,8 +620,6 @@ public class client {
 			if (rcvData[16] == checkVal) {
 				Packet ACKFinalPacket = new Packet(ID, this.connection.getSeqNum(), verifyAck(rcvPacket).getSeqNum(), (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 1, this.connection.getRcvWind(), new byte[0], 0);
 				DatagramPacket ACKFPacket = new DatagramPacket(ACKFinalPacket.toArray(), ACKFinalPacket.toArray().length, address, port);
-				connection.setSeqNum(connection.getSeqNum() + 1);
-				connection.setAckNum(verifyAck(rcvPacket).getSeqNum());
 				
 				if (rcvData[14] == checkVal) {
 					if (trySend(socket, ACKFPacket)) {
@@ -629,7 +627,6 @@ public class client {
 						connection = null;
 						return true;
 					}
-					System.out.println("Could not close connection.");
 					return false;
 				} else {
 					rcvPacket = new DatagramPacket(new byte[FINDataPacket.toArray().length], FINDataPacket.toArray().length);
@@ -639,12 +636,8 @@ public class client {
 							throw new IOException("Received packet was from unknown source");
 						}
 						ACKFinalPacket.setAckNum(verifyAck(rcvPacket).getSeqNum());
-						connection.setAckNum(verifyAck(rcvPacket).getSeqNum());
-						ACKFinalPacket.setRcvWind(connection.getRcvWind());
-						ACKFinalPacket.recalculateHash();
 						ACKFPacket = new DatagramPacket(ACKFinalPacket.toArray(), ACKFinalPacket.toArray().length, address, port);
 					} catch (Exception f) {
-						System.out.println("Could not close connection.");
 						return false;
 					}
 					if (rcvData[14] == checkVal) {
@@ -653,13 +646,11 @@ public class client {
 							connection = null;
 							return true;
 						}
-						System.out.println("Could not close connection.");
 						return false;
 					}
 				}
 			}
 		}
-		System.out.println("Could not close connection.");
 		return false;
 	}
 }
