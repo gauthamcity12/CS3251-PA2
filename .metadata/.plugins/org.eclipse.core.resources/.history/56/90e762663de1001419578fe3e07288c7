@@ -199,6 +199,7 @@ public class client {
 				return true;
 			}
 			toSend.add(0, sendDataPacket);
+			//changes here
 			for (int d = 0; d < WINDOWSIZE; d++) {
 				if (!toSend.isEmpty()) {
 					slidingWindow.add(slidingWindow.size(),toSend.remove(0));

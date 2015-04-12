@@ -173,7 +173,6 @@ public class client {
 	}
 
 	public boolean send(byte flag, String filenameArg, DatagramSocket socket) {
-		expired = false;
 		if (flag == 0) { //GET request
 			byte[] data = filenameArg.getBytes();
 			if (data.length > Packet.MAXDATASIZE) {
@@ -199,6 +198,7 @@ public class client {
 				return true;
 			}
 			toSend.add(0, sendDataPacket);
+			//changes here
 			for (int d = 0; d < WINDOWSIZE; d++) {
 				if (!toSend.isEmpty()) {
 					slidingWindow.add(slidingWindow.size(),toSend.remove(0));

@@ -13,6 +13,11 @@ public class server {
 	private static final int MAXTRIES = 5;
 	private static Random rand = new Random();
 	private static boolean connectFlag = false;
+	private static int WINDOWSIZE = 5;
+	private ArrayList<Packet> slidingWindow = new ArrayList<>(WINDOWSIZE);
+	private int lowSeqNum;
+	private int highSeqNum;
+	private static boolean expired;
 
 	public static void main(String[] args) {
 		if (args.length != 4) {
@@ -155,6 +160,7 @@ public class server {
 	}
 	
 	public boolean send(byte flag, String filenameArg, DatagramSocket socket) {
+		expired = false;
 		if (flag == 0) { //GET request
 			byte[] data = filenameArg.getBytes();
 			if (data.length > Packet.MAXDATASIZE) {
@@ -180,15 +186,60 @@ public class server {
 				return true;
 			}
 			toSend.add(0, sendDataPacket);
-			while (!toSend.isEmpty()) {
-				Packet temp = toSend.remove(0);
-				temp.setSeqNum(connection.getSeqNum());
-				connection.setSeqNum(connection.getSeqNum() + 1);
-				temp.setRcvWind(connection.getRcvWind());
-				temp.recalculateHash();
-				DatagramPacket packetToSend = new DatagramPacket(temp.toArray(), temp.toArray().length, connection.getAddress(), connection.getPort());
-				DatagramPacket genericRcvPacket = new DatagramPacket(new byte[Packet.MAXPACKETSIZE], Packet.MAXPACKETSIZE);
-				while ((!trySend(socket, packetToSend, genericRcvPacket, connection.getAddress())) || (verifyAck(genericRcvPacket).getACK() != (byte) 1) || (verifyAck(genericRcvPacket).getAckNum() != temp.getSeqNum())) {}
+			for (int d = 0; d < WINDOWSIZE; d++) {
+				if (!toSend.isEmpty()) {
+					slidingWindow.add(slidingWindow.size(),toSend.remove(0));
+				}
+			}
+			DatagramPacket genericRcvPacket = new DatagramPacket(new byte[Packet.MAXPACKETSIZE], Packet.MAXPACKETSIZE);
+			Timer timer = new Timer(5000);
+			timer.run();
+			while (!slidingWindow.isEmpty()) {
+				//fix this
+				Packet temp;
+				DatagramPacket packetToSend;
+				if (expired) { //timeout expired
+					for (Packet p : slidingWindow) {
+						p.needToSend();
+					}
+					timer.reset();
+					timer.run();
+				}
+				for (Packet p : slidingWindow) {
+					if (!p.isSent()) {
+						temp = p;
+						temp.setSeqNum(connection.getSeqNum());
+						connection.setSeqNum(connection.getSeqNum() + 1);
+						temp.setRcvWind(connection.getRcvWind());
+						temp.recalculateHash();
+						packetToSend = new DatagramPacket(temp.toArray(), temp.toArray().length, connection.getAddress(), connection.getPort());
+						genericRcvPacket = new DatagramPacket(new byte[Packet.MAXPACKETSIZE], Packet.MAXPACKETSIZE);
+						while (!trySend(socket, packetToSend)) {} //RISK OF INFINITE LOOP!!!!!!!!!!
+						verifyAck(packetToSend).packetIsSent();
+					}
+				}
+				if ((tryInitialReceive(socket, genericRcvPacket, connection.getAddress())) && (verifyAck(genericRcvPacket).getACK() == (byte) 1) && (checkHash(genericRcvPacket))) {
+					int incomingAck = verifyAck(genericRcvPacket).getAckNum();
+					int b = 1;
+					for (Packet p : slidingWindow) {
+						if (incomingAck < p.getSeqNum()) {
+							b = -1;
+							break;
+						} else if (incomingAck == p.getSeqNum()) {
+							break;
+						}
+						b++;
+					}
+					if (b > 0) {
+						for (; b > 0; b--) {
+							slidingWindow.remove(0);
+						}
+					}
+				}
+				//Slide window and increment ACKs if necessary
+				while ((slidingWindow.size() < WINDOWSIZE) && (!toSend.isEmpty())) {
+					slidingWindow.add(slidingWindow.size(), toSend.remove(0));
+				}
 			}
 			return true;
 		}
@@ -197,6 +248,11 @@ public class server {
 	public boolean receive(DatagramSocket socket, Connection connection){
 		DatagramPacket genericRcvPacket = new DatagramPacket(new byte[Packet.MAXPACKETSIZE], Packet.MAXPACKETSIZE);
 		if ((tryInitialReceive(socket, genericRcvPacket, connection.getAddress())) && (checkHash(genericRcvPacket))) {
+			while ((verifyAck(genericRcvPacket).getSeqNum() != connection.getAckNum() + 1) || (!checkHash(genericRcvPacket))) {
+				Packet ACKDataPacket = new Packet(connection.getSessionID(), connection.getSeqNum(), connection.getAckNum(), (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 1, connection.getRcvWind(), new byte[0], 0);
+				DatagramPacket ACKPacket = new DatagramPacket(ACKDataPacket.toArray(), ACKDataPacket.toArray().length, connection.getAddress(), connection.getPort());
+				trySend(socket, ACKPacket, genericRcvPacket, connection.getAddress());
+			}
 			if (verifyAck(genericRcvPacket).getFIN() == (byte) 1) { //client initiated close
 				if (closeReceive(socket, verifyAck(genericRcvPacket))) {
 					connection = null;
@@ -227,7 +283,6 @@ public class server {
 				byte[] fnameArray = new byte[dsz];
 				System.arraycopy(verifyAck(genericRcvPacket).getData(), 0, fnameArray, 0, dsz);
 				String filename = new String(fnameArray);
-				//File fnameFile = new File(filename);
 				Packet ACKDataPacket = new Packet(connection.getSessionID(), connection.getSeqNum(), verifyAck(genericRcvPacket).getSeqNum(), (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 1, connection.getRcvWind(), new byte[0], 0);
 				DatagramPacket ACKPacket = new DatagramPacket(ACKDataPacket.toArray(), ACKDataPacket.toArray().length, connection.getAddress(), connection.getPort());
 				connection.setSeqNum(connection.getSeqNum() + 1);
@@ -240,7 +295,7 @@ public class server {
 		 * 		check ACK against expected number and the window	//SHOULD WE ACK AND RESPOND OR SIMPLY RESPOND TO THINGS LIKE GET???
 		 * 		update window variables and window
 		 */
-		return true;
+		return false;
 	}
 
 	public boolean close(int ID, DatagramSocket socket) {	
@@ -544,7 +599,11 @@ public class server {
 	private static boolean downloadPostedFile(String filename, DatagramPacket ACKPacket, Connection connection, DatagramSocket socket) {
 		DatagramPacket genericRcvPacket = new DatagramPacket(new byte[Packet.MAXPACKETSIZE], Packet.MAXPACKETSIZE);
 		while (!trySend(socket, ACKPacket, genericRcvPacket, connection.getAddress())) {} //POSSIBLE INFINITE LOOP
-		//UPDATE SYN AND ACK NUMBERS!!!!!!!!!!!!!!
+		while ((verifyAck(genericRcvPacket).getSeqNum() != connection.getAckNum() + 1) || (!checkHash(genericRcvPacket))) {
+			Packet ACKDataPacket = new Packet(connection.getSessionID(), connection.getSeqNum(), connection.getAckNum(), (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 1, connection.getRcvWind(), new byte[0], 0);
+			ACKPacket = new DatagramPacket(ACKDataPacket.toArray(), ACKDataPacket.toArray().length, connection.getAddress(), connection.getPort());
+			trySend(socket, ACKPacket, genericRcvPacket, connection.getAddress());
+		}
 		Packet ACKDataPacket = null;
 		try {
 			//DataOutputStream algorithm from http://stackoverflow.com/questions/12977290/write-and-read-multiple-byte-in-file-with-java
@@ -570,6 +629,11 @@ public class server {
 				connection.setAckNum(verifyAck(genericRcvPacket).getSeqNum());
 				connection.setSeqNum(connection.getSeqNum() + 1);
 				while (!trySend(socket, ACKPacket, genericRcvPacket, connection.getAddress())) {} //POSSIBLE INFINITE LOOP
+				while ((verifyAck(genericRcvPacket).getSeqNum() != connection.getAckNum() + 1) || (!checkHash(genericRcvPacket))) {
+					ACKDataPacket = new Packet(connection.getSessionID(), connection.getSeqNum(), connection.getAckNum(), (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 1, connection.getRcvWind(), new byte[0], 0);
+					ACKPacket = new DatagramPacket(ACKDataPacket.toArray(), ACKDataPacket.toArray().length, connection.getAddress(), connection.getPort());
+					trySend(socket, ACKPacket, genericRcvPacket, connection.getAddress());
+				}
 			}
 			return true;
 		} catch (Exception e) { //should never happen
@@ -643,5 +707,92 @@ public class server {
 			}
 		}
 		return false;
+	}
+	
+	/** 
+	  * Retrieved from http://www.javacoffeebreak.com/articles/network_timeouts/
+	  * The Timer class allows a graceful exit when an application
+	  * is stalled due to a networking timeout. Once the timer is
+	  * set, it must be cleared via the reset() method, or the
+	  * timeout() method is called.
+	  * <p>
+	  * The timeout length is customizable, by changing the 'length'
+	  * property, or through the constructor. The length represents
+	  * the length of the timer in milliseconds.
+	  *
+	  * @author	David Reilly
+	  */
+	class Timer extends Thread {
+		/** Rate at which timer is checked */
+		protected int m_rate = 100;
+		
+		/** Length of timeout */
+		private int m_length;
+
+		/** Time elapsed */
+		private int m_elapsed;
+
+		/**
+		  * Creates a timer of a specified length
+		  * @param	length	Length of time before timeout occurs
+		  */
+		public Timer ( int length )
+		{
+			// Assign to member variable
+			m_length = length;
+
+			// Set time elapsed
+			m_elapsed = 0;
+			
+			// Set static expired variable
+			expired = false;
+		}
+
+		
+		/** Resets the timer back to zero */
+		public synchronized void reset()
+		{
+			m_elapsed = 0;
+			expired = false;
+		}
+
+		/** Performs timer specific code */
+		public void run()
+		{
+			// Keep looping
+			for (;;)
+			{
+				// Put the timer to sleep
+				try
+				{ 
+					Thread.sleep(m_rate);
+				}
+				catch (InterruptedException ioe) 
+				{
+					continue;
+				}
+
+				// Use 'synchronized' to prevent conflicts
+				synchronized ( this )
+				{
+					// Increment time remaining
+					m_elapsed += m_rate;
+
+					// Check to see if the time has been exceeded
+					if (m_elapsed > m_length)
+					{
+						// Trigger a timeout
+						timeout();
+					}
+				}
+
+			}
+		}
+
+		// Override this to provide custom functionality
+		public void timeout()
+		{
+			expired = true;
+		}
 	}
 }
