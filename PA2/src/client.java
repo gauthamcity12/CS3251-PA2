@@ -591,6 +591,7 @@ public class client {
 		DatagramPacket FINACKpacket = new DatagramPacket(FINACKDataPacket.toArray(), FINACKDataPacket.toArray().length, connection.getAddress(), connection.getPort());
 		DatagramPacket rcvPacket = new DatagramPacket(new byte[FINACKDataPacket.toArray().length], FINACKDataPacket.toArray().length);
 		
+		connection.setAckNum(serverACKPack.getSeqNum());
 		boolean receivedResponse = trySend(socket, FINACKpacket, rcvPacket, connection.getAddress());
 		connection.setSeqNum(connection.getSeqNum() + 1);
 		

@@ -602,9 +602,6 @@ public class server {
 			if (rcvData[16] == checkVal) {
 				Packet ACKFinalPacket = new Packet(ID, this.connection.getSeqNum(), verifyAck(rcvPacket).getSeqNum(), (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 1, this.connection.getRcvWind(), new byte[0], 0);
 				DatagramPacket ACKFPacket = new DatagramPacket(ACKFinalPacket.toArray(), ACKFinalPacket.toArray().length, address, port);
-				connection.setSeqNum(connection.getSeqNum() + 1);
-				connection.setAckNum(verifyAck(rcvPacket).getSeqNum());
-				
 				if (rcvData[14] == checkVal) {
 					if (trySend(socket, ACKFPacket)) {
 						this.connection.setAckNum(verifyAck(rcvPacket).getSeqNum());
@@ -635,7 +632,6 @@ public class server {
 							connectFlag = false;
 							return true;
 						}
-						System.out.println("Could not close connection.");
 						return false;
 					}
 				}
