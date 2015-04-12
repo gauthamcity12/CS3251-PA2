@@ -64,12 +64,13 @@ public class server {
 				if (serverUser.connect(clientIP, clientPort, socket)) {
 					System.out.println("Successfully connected to client application.");
 				} else {
-					System.out.println("Could not connect to client application. Please try again.");
+					//System.out.println("Could not connect to client application. Please try again.");
 				}
 			}
 			while (connectFlag) {
 				if (!serverUser.receive(socket, serverUser.connection)) {
 					connectFlag = false;
+					break;
 				}
 				boolean ready = false;
 				try {
@@ -149,7 +150,7 @@ public class server {
 			}
 		}
 		connection = null;
-		System.out.println("Socket connection failed!");
+		//System.out.println("Socket connection failed!");
 		return false;
 	}
 
@@ -195,7 +196,7 @@ public class server {
 			}
 			return true;
 		} catch (Exception f) {
-			System.out.println("There was a problem receiving: " + f);
+			//System.out.println("There was a problem receiving: " + f);
 			return false;
 		}
 	}
@@ -429,7 +430,7 @@ public class server {
 			if (verifyAck(genericRcvPacket).getFIN() == (byte) 1) { //client initiated close
 				if (closeReceive(socket, verifyAck(genericRcvPacket))) {
 					connection = null;
-					System.out.println("Closing connection");
+					System.out.println("Connection closed.");
 					connectFlag = false;
 					return true;
 				} else {

@@ -309,9 +309,12 @@ public class client {
 					writeDataToFile(filename, connect.getData(), connect, dataOutStream);
 					lastAck = verifyAck(rcvP).getSeqNum(); // seq # of the first data packet
 					lastSeq = verifyAck(rcvP).getAckNum();
+					connect.setAckNum(verifyAck(rcvP).getSeqNum());
+					connect.setSeqNum(verifyAck(rcvP).getAckNum());
 					
 					Packet ACKDataPacket = new Packet(verifyAck(sendP).getSessionID(), lastSeq++, lastAck, (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 1, connect.getRcvWind(), new byte[0], 0);
 					DatagramPacket ACKpacket = new DatagramPacket(ACKDataPacket.toArray(), ACKDataPacket.toArray().length, address, connect.getPort());
+					connect.setSeqNum(connect.getSeqNum()+1);
 					trySend(socket, ACKpacket);			//WHAT HAPPENS IF THIS DOES NOT ARRIVE???
 					
 					receivedResponse = true;
@@ -350,8 +353,12 @@ public class client {
 						writeDataToFile(filename, connect.getData(), connect, dataOutStream);
 						lastAck = verifyAck(rcvP).getSeqNum();
 						lastSeq = verifyAck(rcvP).getAckNum(); //verifyAck(ACKPacket).getSeqNum(); // DOUBLE CHECK THIS // last SEQ # that was sent
+						connect.setAckNum(verifyAck(rcvP).getSeqNum());
+						connect.setSeqNum(verifyAck(rcvP).getAckNum());
+						
 						Packet ACKDataPacket = new Packet(verifyAck(sendP).getSessionID(), lastSeq++, lastAck, (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 1, connect.getRcvWind(), new byte[0], 0);
 						DatagramPacket ACKpacket = new DatagramPacket(ACKDataPacket.toArray(), ACKDataPacket.toArray().length, address, connect.getPort());
+						connect.setSeqNum(connect.getSeqNum()+1);
 						trySend(socket, ACKpacket);
 					}
 				} else {
@@ -495,6 +502,7 @@ public class client {
 			if (verifyAck(genericRcvPacket).getFIN() == (byte) 1) { //server initiated close
 				if (closeReceive(socket, verifyAck(genericRcvPacket))) {
 					connection = null;
+					System.out.println("Connection closed.");
 					return false;
 				} else {
 					System.out.println("Failed in attempt to handle server initiated close.");

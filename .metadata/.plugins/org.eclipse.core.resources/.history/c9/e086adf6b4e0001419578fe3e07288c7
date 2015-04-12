@@ -64,7 +64,7 @@ public class server {
 				if (serverUser.connect(clientIP, clientPort, socket)) {
 					System.out.println("Successfully connected to client application.");
 				} else {
-					//System.out.println("Could not connect to client application. Please try again.");
+					System.out.println("Could not connect to client application. Please try again.");
 				}
 			}
 			while (connectFlag) {
@@ -150,7 +150,7 @@ public class server {
 			}
 		}
 		connection = null;
-		//System.out.println("Socket connection failed!");
+		System.out.println("Socket connection failed!");
 		return false;
 	}
 
@@ -196,7 +196,7 @@ public class server {
 			}
 			return true;
 		} catch (Exception f) {
-			//System.out.println("There was a problem receiving: " + f);
+			System.out.println("There was a problem receiving: " + f);
 			return false;
 		}
 	}

@@ -196,7 +196,7 @@ public class server {
 			}
 			return true;
 		} catch (Exception f) {
-			//System.out.println("There was a problem receiving: " + f);
+			System.out.println("There was a problem receiving: " + f);
 			return false;
 		}
 	}

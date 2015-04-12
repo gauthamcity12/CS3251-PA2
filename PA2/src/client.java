@@ -502,6 +502,7 @@ public class client {
 			if (verifyAck(genericRcvPacket).getFIN() == (byte) 1) { //server initiated close
 				if (closeReceive(socket, verifyAck(genericRcvPacket))) {
 					connection = null;
+					System.out.println("Connection closed.");
 					return false;
 				} else {
 					System.out.println("Failed in attempt to handle server initiated close.");
