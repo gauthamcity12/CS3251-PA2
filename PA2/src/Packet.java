@@ -19,6 +19,7 @@ public class Packet {  //DAMAGE LINE
 	private byte[] data = new byte[MAXDATASIZE];					//CHECK SIZE AND TYPE FOR THIS VARIABLE
 	protected static final int MAXPACKETSIZE = 65500;
 	protected static final int MAXDATASIZE = MAXPACKETSIZE - 41;
+	private boolean isSent;
 
 	//General constructor
 	public Packet(int id, int sNum, int aNum, byte G, byte P, byte F, byte S, byte A, int rWind, byte[] dataToSend, int dSize) {
@@ -298,5 +299,17 @@ public class Packet {  //DAMAGE LINE
 	 */
 	public byte[] getData() {
 		return this.data;
+	}
+
+	public void packetIsSent() {
+		this.isSent = true;
+	}
+	
+	public void needToSend() {
+		this.isSent = false;
+	}
+
+	public boolean isSent() {
+		return this.isSent;
 	}
 }
