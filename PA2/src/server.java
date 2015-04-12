@@ -153,6 +153,155 @@ public class server {
 		//System.out.println("Socket connection failed!");
 		return false;
 	}
+	
+	public boolean send(byte flag, String filenameArg, DatagramSocket socket) {
+		if (flag == 0) { //GET request
+			byte[] data = filenameArg.getBytes();
+			if (data.length > Packet.MAXDATASIZE) {
+				System.out.println("File name is too long.");	//this would be absurd for a file name
+			}
+			Packet sendDataPacket = new Packet(this.connection.getSessionID(), this.connection.getSeqNum(), 47, (byte) 1, (byte) 0, (byte) 0, (byte) 0, (byte) 0, connection.getRcvWind(), data, data.length);
+			DatagramPacket sendPacket = new DatagramPacket(sendDataPacket.toArray(), sendDataPacket.toArray().length, connection.getAddress(), connection.getPort());
+			this.connection.setSeqNum(this.connection.getSeqNum() + 1); //should we increment here
+			
+			if (trySend(socket, sendPacket, this.connection.getAddress(), this.connection, filenameArg)) { //DAMAGE LINE
+				return true;
+			}
+			return false;
+		} else { //POST data
+			byte[] data = filenameArg.getBytes();
+			if (data.length > Packet.MAXDATASIZE) {
+				System.out.println("File name is too long.");	//this would be absurd for a file name
+			}
+			Packet sendDataPacket = new Packet(this.connection.getSessionID(), this.connection.getSeqNum(), 47, (byte) 0, (byte) 1, (byte) 0, (byte) 0, (byte) 0, connection.getRcvWind(), data, data.length);
+			ArrayList<Packet> toSend = retrieveFile(filenameArg, connection);
+			if (toSend.size() < 2) {
+				System.out.println("File does not exist on your host.");
+				return true;
+			}
+			toSend.add(0, sendDataPacket);
+			while (!toSend.isEmpty()) {
+				Packet temp = toSend.remove(0);
+				temp.setSeqNum(connection.getSeqNum());
+				connection.setSeqNum(connection.getSeqNum() + 1);
+				temp.setRcvWind(connection.getRcvWind());
+				temp.recalculateHash();
+				DatagramPacket packetToSend = new DatagramPacket(temp.toArray(), temp.toArray().length, connection.getAddress(), connection.getPort());
+				DatagramPacket genericRcvPacket = new DatagramPacket(new byte[Packet.MAXPACKETSIZE], Packet.MAXPACKETSIZE);
+				while ((!trySend(socket, packetToSend, genericRcvPacket, connection.getAddress())) || (verifyAck(genericRcvPacket).getACK() != (byte) 1) || (verifyAck(genericRcvPacket).getAckNum() != temp.getSeqNum())) {}
+			}
+			return true;
+		}
+	}
+
+	public boolean receive(DatagramSocket socket, Connection connection){
+		DatagramPacket genericRcvPacket = new DatagramPacket(new byte[Packet.MAXPACKETSIZE], Packet.MAXPACKETSIZE);
+		if ((tryInitialReceive(socket, genericRcvPacket, connection.getAddress())) && (checkHash(genericRcvPacket))) {
+			if (verifyAck(genericRcvPacket).getFIN() == (byte) 1) { //client initiated close
+				if (closeReceive(socket, verifyAck(genericRcvPacket))) {
+					connection = null;
+					System.out.println("Connection closed.");
+					connectFlag = false;
+					return true;
+				} else {
+					System.out.println("Failed in attempt to handle client initiated close.");
+					return false;
+				}
+			} else if (verifyAck(genericRcvPacket).getGET() == (byte) 1) {	//client sends GET request packet
+				ArrayList<Packet> toSend = retrieveFile(verifyAck(genericRcvPacket), connection);
+				while (!toSend.isEmpty()) {
+					Packet temp = toSend.remove(0);
+					temp.setSeqNum(connection.getSeqNum());
+					connection.setSeqNum(connection.getSeqNum() + 1);
+					connection.setAckNum(verifyAck(genericRcvPacket).getSeqNum());
+					temp.setAckNum(connection.getAckNum());
+					temp.setRcvWind(connection.getRcvWind());
+					temp.recalculateHash(); 
+					DatagramPacket packetToSend = new DatagramPacket(temp.toArray(), temp.toArray().length, connection.getAddress(), connection.getPort());
+					genericRcvPacket = new DatagramPacket(new byte[Packet.MAXPACKETSIZE], Packet.MAXPACKETSIZE);
+					while ((!trySend(socket, packetToSend, genericRcvPacket, connection.getAddress())) || (verifyAck(genericRcvPacket).getACK() != (byte) 1) || (verifyAck(genericRcvPacket).getAckNum() != temp.getSeqNum()) || (!checkHash(genericRcvPacket))) {}
+				}
+				return true;
+			} else if (verifyAck(genericRcvPacket).getPOST() == (byte) 1) {	//client sends POST data packet
+				int dsz = verifyAck(genericRcvPacket).getDataSize();
+				byte[] fnameArray = new byte[dsz];
+				System.arraycopy(verifyAck(genericRcvPacket).getData(), 0, fnameArray, 0, dsz);
+				String filename = new String(fnameArray);
+				//File fnameFile = new File(filename);
+				Packet ACKDataPacket = new Packet(connection.getSessionID(), connection.getSeqNum(), verifyAck(genericRcvPacket).getSeqNum(), (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 1, connection.getRcvWind(), new byte[0], 0);
+				DatagramPacket ACKPacket = new DatagramPacket(ACKDataPacket.toArray(), ACKDataPacket.toArray().length, connection.getAddress(), connection.getPort());
+				connection.setSeqNum(connection.getSeqNum() + 1);
+				connection.setAckNum(verifyAck(genericRcvPacket).getSeqNum());
+				return downloadPostedFile(filename, ACKPacket, connection, socket);
+			}
+		}
+		/*
+		 * if received ACK											//SHOULD ACK PACKETS HAVE A SEQ NUM AND BE ADDED TO THE WINDOW???
+		 * 		check ACK against expected number and the window	//SHOULD WE ACK AND RESPOND OR SIMPLY RESPOND TO THINGS LIKE GET???
+		 * 		update window variables and window
+		 */
+		return true;
+	}
+
+	public boolean close(int ID, DatagramSocket socket) {	
+		InetAddress address = this.connection.getAddress();
+		int port = this.connection.getPort();
+		
+		Packet FINDataPacket = new Packet(ID, this.connection.getSeqNum(), this.connection.getAckNum(), (byte) 0, (byte) 0, (byte) 1, (byte) 0, (byte) 0, this.connection.getRcvWind(), new byte[0], 0);
+		DatagramPacket FINpacket = new DatagramPacket(FINDataPacket.toArray(), FINDataPacket.toArray().length, address, port);
+		DatagramPacket rcvPacket = new DatagramPacket(new byte[FINDataPacket.toArray().length], FINDataPacket.toArray().length);
+		
+		boolean receivedResponse = trySend(socket, FINpacket, rcvPacket, address);
+		connection.setSeqNum(connection.getSeqNum() + 1);
+		
+		if ((receivedResponse) && (verifyAck(rcvPacket).getAckNum() == connection.getSeqNum() - 1) && (checkHash(rcvPacket))) {
+			byte[] rcvData = rcvPacket.getData();
+			byte checkVal = (byte) 1;
+			if (rcvData[16] == checkVal) {
+				Packet ACKFinalPacket = new Packet(ID, this.connection.getSeqNum(), verifyAck(rcvPacket).getSeqNum(), (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 1, this.connection.getRcvWind(), new byte[0], 0);
+				DatagramPacket ACKFPacket = new DatagramPacket(ACKFinalPacket.toArray(), ACKFinalPacket.toArray().length, address, port);
+				connection.setSeqNum(connection.getSeqNum() + 1);
+				connection.setAckNum(verifyAck(rcvPacket).getSeqNum());
+				
+				if (rcvData[14] == checkVal) {
+					if (trySend(socket, ACKFPacket)) {
+						this.connection.setAckNum(verifyAck(rcvPacket).getSeqNum());
+						connectFlag = false;
+						return true;
+					}
+					System.out.println("Could not close connection.");
+					return false;
+				} else {
+					rcvPacket = new DatagramPacket(new byte[FINDataPacket.toArray().length], FINDataPacket.toArray().length);
+					try {
+						socket.receive(rcvPacket);
+						if (!rcvPacket.getAddress().equals(address)) { //Check source for received packet
+							throw new IOException("Received packet was from unknown source");
+						}
+						ACKFinalPacket.setAckNum(verifyAck(rcvPacket).getSeqNum());
+						connection.setAckNum(verifyAck(rcvPacket).getSeqNum());
+						ACKFinalPacket.setRcvWind(connection.getRcvWind());
+						ACKFinalPacket.recalculateHash();
+						ACKFPacket = new DatagramPacket(ACKFinalPacket.toArray(), ACKFinalPacket.toArray().length, address, port);
+					} catch (Exception f) {
+						System.out.println("Could not close connection.");
+						return false;
+					}
+					if (rcvData[14] == checkVal) {
+						if (trySend(socket, ACKFPacket)) {
+							this.connection.setAckNum(verifyAck(rcvPacket).getSeqNum());
+							connectFlag = false;
+							return true;
+						}
+						System.out.println("Could not close connection.");
+						return false;
+					}
+				}
+			}
+		}
+		System.out.println("Could not close connection.");
+		return false;
+	}
 
 	private static Packet verifyAck(DatagramPacket pack) {
 		return new Packet(pack.getData());
@@ -186,19 +335,6 @@ public class server {
 		System.arraycopy(tempPack.getData(), 0, aboutToHash, anotherTemp.length, tempPack.getDataSize());
 		byte[] checkHash = hash.digest(aboutToHash);
 		return Arrays.equals(rcvHash, checkHash);
-	}
-	
-	private static boolean tryReceive(DatagramSocket socket, DatagramPacket rcvP, InetAddress address) {
-		try {
-			socket.receive(rcvP);
-			if (!rcvP.getAddress().equals(address)) { //Check source for received packet
-				throw new IOException("Received packet was from unknown source");
-			}
-			return true;
-		} catch (Exception f) {
-			//System.out.println("There was a problem receiving: " + f);
-			return false;
-		}
 	}
 	
 	private static boolean trySend(DatagramSocket socket, DatagramPacket sendP, DatagramPacket rcvP, InetAddress address) {
@@ -243,45 +379,6 @@ public class server {
 		return receivedResponse;
 	}
 	
-	public boolean send(byte flag, String filenameArg, DatagramSocket socket) {
-		if (flag == 0) { //GET request
-			byte[] data = filenameArg.getBytes();
-			if (data.length > Packet.MAXDATASIZE) {
-				System.out.println("File name is too long.");	//this would be absurd for a file name
-			}
-			Packet sendDataPacket = new Packet(this.connection.getSessionID(), this.connection.getSeqNum(), 47, (byte) 1, (byte) 0, (byte) 0, (byte) 0, (byte) 0, connection.getRcvWind(), data, data.length);
-			DatagramPacket sendPacket = new DatagramPacket(sendDataPacket.toArray(), sendDataPacket.toArray().length, connection.getAddress(), connection.getPort());
-			this.connection.setSeqNum(this.connection.getSeqNum() + 1); //should we increment here
-			
-			if (trySend(socket, sendPacket, this.connection.getAddress(), this.connection, filenameArg)) { //DAMAGE LINE
-				return true;
-			}
-			return false;
-		} else { //POST data
-			byte[] data = filenameArg.getBytes();
-			if (data.length > Packet.MAXDATASIZE) {
-				System.out.println("File name is too long.");	//this would be absurd for a file name
-			}
-			Packet sendDataPacket = new Packet(this.connection.getSessionID(), this.connection.getSeqNum(), 47, (byte) 0, (byte) 1, (byte) 0, (byte) 0, (byte) 0, connection.getRcvWind(), data, data.length);
-			ArrayList<Packet> toSend = retrieveFile(filenameArg, connection);
-			if (toSend.size() < 2) {
-				System.out.println("File does not exist on your host.");
-				return true;
-			}
-			toSend.add(0, sendDataPacket);
-			while (!toSend.isEmpty()) {
-				Packet temp = toSend.remove(0);
-				temp.setSeqNum(connection.getSeqNum());
-				connection.setSeqNum(connection.getSeqNum() + 1);
-				temp.setRcvWind(connection.getRcvWind());
-				temp.recalculateHash();
-				DatagramPacket packetToSend = new DatagramPacket(temp.toArray(), temp.toArray().length, connection.getAddress(), connection.getPort());
-				DatagramPacket genericRcvPacket = new DatagramPacket(new byte[Packet.MAXPACKETSIZE], Packet.MAXPACKETSIZE);
-				while ((!trySend(socket, packetToSend, genericRcvPacket, connection.getAddress())) || (verifyAck(genericRcvPacket).getACK() != (byte) 1) || (verifyAck(genericRcvPacket).getAckNum() != temp.getSeqNum())) {}
-			}
-			return true;
-		}
-	}
 	private static boolean trySend(DatagramSocket socket, DatagramPacket sendP, InetAddress address, Connection connect, String filename) {
 		DatagramPacket rcvP = new DatagramPacket(new byte[Packet.MAXPACKETSIZE], Packet.MAXPACKETSIZE);
 		int lastAck = 0;
@@ -379,6 +476,34 @@ public class server {
 			return false;
 		}
 	}
+
+	private static boolean tryReceive(DatagramSocket socket, DatagramPacket rcvP, InetAddress address) {
+		try {
+			socket.receive(rcvP);
+			if (!rcvP.getAddress().equals(address)) { //Check source for received packet
+				throw new IOException("Received packet was from unknown source");
+			}
+			return true;
+		} catch (Exception f) {
+			//System.out.println("There was a problem receiving: " + f);
+			return false;
+		}
+	}
+	
+	private static boolean tryInitialReceive(DatagramSocket socket, DatagramPacket rcvP, InetAddress address) {
+		try {
+			socket.setSoTimeout(100);
+			socket.receive(rcvP);
+			if (!rcvP.getAddress().equals(address)) { //Check source for received packet
+				throw new IOException("Received packet was from unknown source");
+			}
+			return true;
+		} catch (InterruptedIOException e) {
+			return false;
+		} catch (Exception f) {
+			return tryInitialReceive(socket, rcvP, address);
+		}
+	}
 	
 	private ArrayList<Packet> retrieveFile(String filename, Connection connection) { //seq & ack numbers & rcvWind are not set and should be before they are sent
 		ArrayList<Packet> packetStream = new ArrayList<>(); //will be returned
@@ -414,70 +539,6 @@ public class server {
 			packetStream.add(endOfFilePacket);
 			return packetStream;
 		}
-	}
-
-	private static boolean tryInitialReceive(DatagramSocket socket, DatagramPacket rcvP, InetAddress address) {
-		try {
-			socket.setSoTimeout(100);
-			socket.receive(rcvP);
-			if (!rcvP.getAddress().equals(address)) { //Check source for received packet
-				throw new IOException("Received packet was from unknown source");
-			}
-			return true;
-		} catch (InterruptedIOException e) {
-			return false;
-		} catch (Exception f) {
-			return tryInitialReceive(socket, rcvP, address);
-		}
-	}
-
-	public boolean receive(DatagramSocket socket, Connection connection){
-		DatagramPacket genericRcvPacket = new DatagramPacket(new byte[Packet.MAXPACKETSIZE], Packet.MAXPACKETSIZE);
-		if ((tryInitialReceive(socket, genericRcvPacket, connection.getAddress())) && (checkHash(genericRcvPacket))) {
-			if (verifyAck(genericRcvPacket).getFIN() == (byte) 1) { //client initiated close
-				if (closeReceive(socket, verifyAck(genericRcvPacket))) {
-					connection = null;
-					System.out.println("Connection closed.");
-					connectFlag = false;
-					return true;
-				} else {
-					System.out.println("Failed in attempt to handle client initiated close.");
-					return false;
-				}
-			} else if (verifyAck(genericRcvPacket).getGET() == (byte) 1) {	//client sends GET request packet
-				ArrayList<Packet> toSend = retrieveFile(verifyAck(genericRcvPacket), connection);
-				while (!toSend.isEmpty()) {
-					Packet temp = toSend.remove(0);
-					temp.setSeqNum(connection.getSeqNum());
-					connection.setSeqNum(connection.getSeqNum() + 1);
-					connection.setAckNum(verifyAck(genericRcvPacket).getSeqNum());
-					temp.setAckNum(connection.getAckNum());
-					temp.setRcvWind(connection.getRcvWind());
-					temp.recalculateHash(); 
-					DatagramPacket packetToSend = new DatagramPacket(temp.toArray(), temp.toArray().length, connection.getAddress(), connection.getPort());
-					genericRcvPacket = new DatagramPacket(new byte[Packet.MAXPACKETSIZE], Packet.MAXPACKETSIZE);
-					while ((!trySend(socket, packetToSend, genericRcvPacket, connection.getAddress())) || (verifyAck(genericRcvPacket).getACK() != (byte) 1) || (verifyAck(genericRcvPacket).getAckNum() != temp.getSeqNum()) || (!checkHash(genericRcvPacket))) {}
-				}
-				return true;
-			} else if (verifyAck(genericRcvPacket).getPOST() == (byte) 1) {	//client sends POST data packet
-				int dsz = verifyAck(genericRcvPacket).getDataSize();
-				byte[] fnameArray = new byte[dsz];
-				System.arraycopy(verifyAck(genericRcvPacket).getData(), 0, fnameArray, 0, dsz);
-				String filename = new String(fnameArray);
-				//File fnameFile = new File(filename);
-				Packet ACKDataPacket = new Packet(connection.getSessionID(), connection.getSeqNum(), verifyAck(genericRcvPacket).getSeqNum(), (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 1, connection.getRcvWind(), new byte[0], 0);
-				DatagramPacket ACKPacket = new DatagramPacket(ACKDataPacket.toArray(), ACKDataPacket.toArray().length, connection.getAddress(), connection.getPort());
-				connection.setSeqNum(connection.getSeqNum() + 1);
-				connection.setAckNum(verifyAck(genericRcvPacket).getSeqNum());
-				return downloadPostedFile(filename, ACKPacket, connection, socket);
-			}
-		}
-		/*
-		 * if received ACK											//SHOULD ACK PACKETS HAVE A SEQ NUM AND BE ADDED TO THE WINDOW???
-		 * 		check ACK against expected number and the window	//SHOULD WE ACK AND RESPOND OR SIMPLY RESPOND TO THINGS LIKE GET???
-		 * 		update window variables and window
-		 */
-		return true;
 	}
 
 	private static boolean downloadPostedFile(String filename, DatagramPacket ACKPacket, Connection connection, DatagramSocket socket) {
@@ -581,67 +642,6 @@ public class server {
 				return true;
 			}
 		}
-		return false;
-	}
-	
-	//CHECK SEQ/ACK NUMS and MD5
-	public boolean close(int ID, DatagramSocket socket) {	
-		InetAddress address = this.connection.getAddress();
-		int port = this.connection.getPort();
-		
-		Packet FINDataPacket = new Packet(ID, this.connection.getSeqNum(), this.connection.getAckNum(), (byte) 0, (byte) 0, (byte) 1, (byte) 0, (byte) 0, this.connection.getRcvWind(), new byte[0], 0);
-		DatagramPacket FINpacket = new DatagramPacket(FINDataPacket.toArray(), FINDataPacket.toArray().length, address, port);
-		DatagramPacket rcvPacket = new DatagramPacket(new byte[FINDataPacket.toArray().length], FINDataPacket.toArray().length);
-		
-		boolean receivedResponse = trySend(socket, FINpacket, rcvPacket, address);
-		connection.setSeqNum(connection.getSeqNum() + 1);
-		
-		if ((receivedResponse) && (verifyAck(rcvPacket).getAckNum() == connection.getSeqNum() - 1) && (checkHash(rcvPacket))) {
-			byte[] rcvData = rcvPacket.getData();
-			byte checkVal = (byte) 1;
-			if (rcvData[16] == checkVal) {
-				Packet ACKFinalPacket = new Packet(ID, this.connection.getSeqNum(), verifyAck(rcvPacket).getSeqNum(), (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 1, this.connection.getRcvWind(), new byte[0], 0);
-				DatagramPacket ACKFPacket = new DatagramPacket(ACKFinalPacket.toArray(), ACKFinalPacket.toArray().length, address, port);
-				connection.setSeqNum(connection.getSeqNum() + 1);
-				connection.setAckNum(verifyAck(rcvPacket).getSeqNum());
-				
-				if (rcvData[14] == checkVal) {
-					if (trySend(socket, ACKFPacket)) {
-						this.connection.setAckNum(verifyAck(rcvPacket).getSeqNum());
-						connectFlag = false;
-						return true;
-					}
-					System.out.println("Could not close connection.");
-					return false;
-				} else {
-					rcvPacket = new DatagramPacket(new byte[FINDataPacket.toArray().length], FINDataPacket.toArray().length);
-					try {
-						socket.receive(rcvPacket);
-						if (!rcvPacket.getAddress().equals(address)) { //Check source for received packet
-							throw new IOException("Received packet was from unknown source");
-						}
-						ACKFinalPacket.setAckNum(verifyAck(rcvPacket).getSeqNum());
-						connection.setAckNum(verifyAck(rcvPacket).getSeqNum());
-						ACKFinalPacket.setRcvWind(connection.getRcvWind());
-						ACKFinalPacket.recalculateHash();
-						ACKFPacket = new DatagramPacket(ACKFinalPacket.toArray(), ACKFinalPacket.toArray().length, address, port);
-					} catch (Exception f) {
-						System.out.println("Could not close connection.");
-						return false;
-					}
-					if (rcvData[14] == checkVal) {
-						if (trySend(socket, ACKFPacket)) {
-							this.connection.setAckNum(verifyAck(rcvPacket).getSeqNum());
-							connectFlag = false;
-							return true;
-						}
-						System.out.println("Could not close connection.");
-						return false;
-					}
-				}
-			}
-		}
-		System.out.println("Could not close connection.");
 		return false;
 	}
 }
