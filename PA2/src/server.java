@@ -72,18 +72,24 @@ public class server {
 					//System.out.println("Could not connect to client application. Please try again.");
 				}
 			}
+			System.out.println("connection established");
 			while (connectFlag) {
+				System.out.println("loop");
 				if (!serverUser.receive(socket, serverUser.connection)) {
+					System.out.println("failed");
 					connectFlag = false;
 					break;
 				}
+				System.out.println("checked receive");
 				boolean ready = false;
 				try {
 					ready = reader.ready();
 				} catch (Exception e) {
 					ready = false;
 				}
+				System.out.println("set boolean ready");
 				if (ready) {
+					System.out.println("ENTERING READY\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nENTERING READY\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nENTERING READY\n\n\n\\n\n\n\n\n");;
 					String next = "";
 					try {
 						next = reader.readLine();
@@ -246,9 +252,13 @@ public class server {
 	}
 
 	public boolean receive(DatagramSocket socket, Connection connection){
+		System.out.println("entering receive");
 		DatagramPacket genericRcvPacket = new DatagramPacket(new byte[Packet.MAXPACKETSIZE], Packet.MAXPACKETSIZE);
+		System.out.println("entering receive 2.0");
 		if ((tryInitialReceive(socket, genericRcvPacket, connection.getAddress())) && (checkHash(genericRcvPacket))) {
+			System.out.println("passed check 1");
 			while ((verifyAck(genericRcvPacket).getSeqNum() != connection.getAckNum() + 1) || (!checkHash(genericRcvPacket))) {
+				System.out.println("in while loop");
 				Packet ACKDataPacket = new Packet(connection.getSessionID(), connection.getSeqNum(), connection.getAckNum(), (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 1, connection.getRcvWind(), new byte[0], 0);
 				DatagramPacket ACKPacket = new DatagramPacket(ACKDataPacket.toArray(), ACKDataPacket.toArray().length, connection.getAddress(), connection.getPort());
 				trySend(socket, ACKPacket, genericRcvPacket, connection.getAddress());
@@ -258,10 +268,10 @@ public class server {
 					connection = null;
 					System.out.println("Connection closed.");
 					connectFlag = false;
-					return true;
+					return false;
 				} else {
 					System.out.println("Failed in attempt to handle client initiated close.");
-					return false;
+					return true;
 				}
 			} else if (verifyAck(genericRcvPacket).getGET() == (byte) 1) {	//client sends GET request packet
 				ArrayList<Packet> toSend = retrieveFile(verifyAck(genericRcvPacket), connection);
@@ -279,6 +289,7 @@ public class server {
 				}
 				return true;
 			} else if (verifyAck(genericRcvPacket).getPOST() == (byte) 1) {	//client sends POST data packet
+				System.out.println("received POST");
 				int dsz = verifyAck(genericRcvPacket).getDataSize();
 				byte[] fnameArray = new byte[dsz];
 				System.arraycopy(verifyAck(genericRcvPacket).getData(), 0, fnameArray, 0, dsz);
@@ -290,12 +301,13 @@ public class server {
 				return downloadPostedFile(filename, ACKPacket, connection, socket);
 			}
 		}
+		System.out.println("did not pass check 1");
 		/*
 		 * if received ACK											//SHOULD ACK PACKETS HAVE A SEQ NUM AND BE ADDED TO THE WINDOW???
 		 * 		check ACK against expected number and the window	//SHOULD WE ACK AND RESPOND OR SIMPLY RESPOND TO THINGS LIKE GET???
 		 * 		update window variables and window
 		 */
-		return false;
+		return true;
 	}
 
 	public boolean close(int ID, DatagramSocket socket) {	
@@ -546,6 +558,7 @@ public class server {
 	}
 	
 	private static boolean tryInitialReceive(DatagramSocket socket, DatagramPacket rcvP, InetAddress address) {
+		System.out.println("initial receive");
 		try {
 			socket.setSoTimeout(100);
 			socket.receive(rcvP);
@@ -556,6 +569,7 @@ public class server {
 		} catch (InterruptedIOException e) {
 			return false;
 		} catch (Exception f) {
+			System.out.println("AHHHHHHHHHHH!!!");
 			return tryInitialReceive(socket, rcvP, address);
 		}
 	}
@@ -607,7 +621,9 @@ public class server {
 		Packet ACKDataPacket = null;
 		try {
 			//DataOutputStream algorithm from http://stackoverflow.com/questions/12977290/write-and-read-multiple-byte-in-file-with-java
+			System.out.println("about to create stream");
 			DataOutputStream dataOutStream = new DataOutputStream(new FileOutputStream(new File(filename)));
+			System.out.println("created stream");
 			boolean flag = true;
 			while (flag) {
 				if ((verifyAck(genericRcvPacket).getGET() == 0) && (verifyAck(genericRcvPacket).getPOST() == 0) && (verifyAck(genericRcvPacket).getSYN() == 0) && (verifyAck(genericRcvPacket).getFIN() == 0) && (verifyAck(genericRcvPacket).getACK() == 0)) {

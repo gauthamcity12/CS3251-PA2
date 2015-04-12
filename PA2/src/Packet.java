@@ -20,6 +20,7 @@ public class Packet {  //DAMAGE LINE
 	protected static final int MAXPACKETSIZE = 65500;
 	protected static final int MAXDATASIZE = MAXPACKETSIZE - 41;
 	private boolean isSent;
+	private boolean isOld;
 
 	//General constructor
 	public Packet(int id, int sNum, int aNum, byte G, byte P, byte F, byte S, byte A, int rWind, byte[] dataToSend, int dSize) {
@@ -56,6 +57,8 @@ public class Packet {  //DAMAGE LINE
 		System.arraycopy(anotherTemp, 0, aboutToHash, 0, anotherTemp.length);
 		System.arraycopy(data, 0, aboutToHash, anotherTemp.length, dataSize);
 		this.digest = hash.digest(aboutToHash);
+		this.isOld = false;
+		this.isSent = false;
 	}
 	
 	public Packet(byte[] packet) {
@@ -311,5 +314,13 @@ public class Packet {  //DAMAGE LINE
 
 	public boolean isSent() {
 		return this.isSent;
+	}
+	
+	public boolean isOld() {
+		return this.isOld;
+	}
+	
+	public void setOld() {
+		this.isOld = true;
 	}
 }

@@ -202,33 +202,43 @@ public class client {
 			for (int d = 0; d < WINDOWSIZE; d++) {
 				if (!toSend.isEmpty()) {
 					slidingWindow.add(slidingWindow.size(),toSend.remove(0));
+					slidingWindow.get(d).needToSend();
 				}
 			}
+			System.out.println("should be good to here");
 			DatagramPacket genericRcvPacket = new DatagramPacket(new byte[Packet.MAXPACKETSIZE], Packet.MAXPACKETSIZE);
 			Timer timer = new Timer(5000);
-			timer.run();
+			timer.start();
+			System.out.println("initialized and started timer");
 			while (!slidingWindow.isEmpty()) {
 				//fix this
 				Packet temp;
 				DatagramPacket packetToSend;
+				System.out.println("in loop, isSent size is " + toSend.size());
 				if (expired) { //timeout expired
 					for (Packet p : slidingWindow) {
 						p.needToSend();
 					}
-					timer.reset();
-					timer.run();
+					System.out.println("Expired");
+					timer = new Timer(5000);
+					timer.start();
 				}
 				for (Packet p : slidingWindow) {
+					System.out.println("Checking through sliding window");
 					if (!p.isSent()) {
 						temp = p;
-						temp.setSeqNum(connection.getSeqNum());
-						connection.setSeqNum(connection.getSeqNum() + 1);
+						if (!p.isOld()) {
+							temp.setSeqNum(connection.getSeqNum());
+							connection.setSeqNum(connection.getSeqNum() + 1);
+						}
 						temp.setRcvWind(connection.getRcvWind());
 						temp.recalculateHash();
 						packetToSend = new DatagramPacket(temp.toArray(), temp.toArray().length, connection.getAddress(), connection.getPort());
 						genericRcvPacket = new DatagramPacket(new byte[Packet.MAXPACKETSIZE], Packet.MAXPACKETSIZE);
 						while (!trySend(socket, packetToSend)) {} //RISK OF INFINITE LOOP!!!!!!!!!!
-						verifyAck(packetToSend).packetIsSent();
+						temp.packetIsSent();
+						temp.setOld();
+						System.out.println(p.getSeqNum());
 					}
 				}
 				if ((tryInitialReceive(socket, genericRcvPacket, connection.getAddress())) && (verifyAck(genericRcvPacket).getACK() == (byte) 1) && (checkHash(genericRcvPacket))) {
@@ -249,6 +259,7 @@ public class client {
 						}
 					}
 				}
+				System.out.println("CHecking forACK");
 				//Slide window and increment ACKs if necessary
 				while ((slidingWindow.size() < WINDOWSIZE) && (!toSend.isEmpty())) {
 					slidingWindow.add(slidingWindow.size(), toSend.remove(0));
