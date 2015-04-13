@@ -13,7 +13,7 @@ public class client {
 	private static final int MAXTRIES = 5;
 	private static Random rand = new Random();
 	private static boolean connectFlag = false;
-	private static int WINDOWSIZE = 5;
+	private static int WINDOWSIZE = 100;
 	private ArrayList<Packet> slidingWindow = new ArrayList<>(WINDOWSIZE);
 	private int lowSeqNum;
 	private int highSeqNum;
@@ -199,13 +199,22 @@ public class client {
 				return true;
 			}
 			toSend.add(0, sendDataPacket);
+//			System.out.println(toSend.size());
+//			System.out.println(toSend.get(0).getDataSize());
+//			System.out.println(toSend.get(1).getDataSize());
+//			System.out.println(toSend.get(toSend.size() - 1).getDataSize());
 			for (int d = 0; d < WINDOWSIZE; d++) {
 				if (!toSend.isEmpty()) {
 					slidingWindow.add(slidingWindow.size(),toSend.remove(0));
 					slidingWindow.get(d).needToSend();
 				}
 			}
-			System.out.println("should be good to here");
+//			System.out.println(slidingWindow.size());
+//			System.out.println(slidingWindow.get(0).getDataSize());
+//			System.out.println(slidingWindow.get(1).getDataSize());
+//			System.out.println(slidingWindow.get(99).getDataSize());
+//			System.exit(0);
+			//System.out.println("should be good to here");
 			DatagramPacket genericRcvPacket = new DatagramPacket(new byte[Packet.MAXPACKETSIZE], Packet.MAXPACKETSIZE);
 			Timer timer = new Timer(5000);
 			timer.start();
@@ -224,7 +233,7 @@ public class client {
 					timer.start();
 				}
 				for (Packet p : slidingWindow) {
-					System.out.println("Checking through sliding window");
+					//System.out.println("Checking through sliding window");
 					if (!p.isSent()) {
 						temp = p;
 						if (!p.isOld()) {
@@ -238,7 +247,7 @@ public class client {
 						while (!trySend(socket, packetToSend)) {} //RISK OF INFINITE LOOP!!!!!!!!!!
 						temp.packetIsSent();
 						temp.setOld();
-						System.out.println(p.getSeqNum());
+						//System.out.println(p.getSeqNum());
 					}
 				}
 				if ((tryInitialReceive(socket, genericRcvPacket, connection.getAddress())) && (verifyAck(genericRcvPacket).getACK() == (byte) 1) && (checkHash(genericRcvPacket))) {
@@ -259,7 +268,7 @@ public class client {
 						}
 					}
 				}
-				System.out.println("CHecking forACK");
+				//System.out.println("CHecking forACK");
 				//Slide window and increment ACKs if necessary
 				while ((slidingWindow.size() < WINDOWSIZE) && (!toSend.isEmpty())) {
 					slidingWindow.add(slidingWindow.size(), toSend.remove(0));

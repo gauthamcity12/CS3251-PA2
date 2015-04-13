@@ -2,20 +2,20 @@
 <section name="Workbench">
 	<section name="org.eclipse.ui.texteditor.FindReplaceDialog">
 		<item value="false" key="isRegEx"/>
-		<item value="rcvP" key="selection"/>
+		<item value="addData" key="selection"/>
 		<item value="false" key="casesensitive"/>
 		<item value="false" key="incremental"/>
 		<item value="true" key="wrap"/>
 		<item value="false" key="wholeword"/>
 		<list key="findhistory">
-			<item value="Stan"/>
-			<item value="rcvp"/>
-			<item value="generic"/>
-			<item value="rcvP"/>
-			<item value="return"/>
-			<item value="arraycopy"/>
-			<item value="send"/>
-			<item value="tryRec"/>
+			<item value="addData"/>
+			<item value="expired"/>
+			<item value="created"/>
+			<item value="trouble"/>
+			<item value="remove("/>
+			<item value="remove()"/>
+			<item value="get()"/>
+			<item value="tryInitial"/>
 		</list>
 		<list key="replacehistory">
 		</list>
@@ -24,7 +24,7 @@
 		<item value="305" key="DIALOG_WIDTH"/>
 		<item value="1|Segoe UI|9.0|0|WINDOWS|1|-15|0|0|0|400|0|0|0|1|0|0|0|0|Segoe UI" key="DIALOG_FONT_NAME"/>
 		<item value="444" key="DIALOG_HEIGHT"/>
-		<item value="9" key="DIALOG_X_ORIGIN"/>
-		<item value="479" key="DIALOG_Y_ORIGIN"/>
+		<item value="1313" key="DIALOG_X_ORIGIN"/>
+		<item value="412" key="DIALOG_Y_ORIGIN"/>
 	</section>
 </section>

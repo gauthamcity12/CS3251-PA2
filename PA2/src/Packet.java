@@ -16,8 +16,8 @@ public class Packet {  //DAMAGE LINE
 	private int dataSize;
 	private static MessageDigest hash;
 	private byte[] digest = new byte[16];
-	private byte[] data = new byte[MAXDATASIZE];					//CHECK SIZE AND TYPE FOR THIS VARIABLE
-	protected static final int MAXPACKETSIZE = 65500;
+	private byte[] data = new byte[MAXDATASIZE];
+	protected static final int MAXPACKETSIZE = 1024;
 	protected static final int MAXDATASIZE = MAXPACKETSIZE - 41;
 	private boolean isSent;
 	private boolean isOld;
@@ -84,7 +84,7 @@ public class Packet {  //DAMAGE LINE
 	}
 
 	public byte[] toArray() {
-		ByteBuffer temp = ByteBuffer.allocate(MAXPACKETSIZE);
+		ByteBuffer temp = ByteBuffer.allocate(41 + this.dataSize);
 		temp.putInt(this.sessionID); //index 0-3
 		temp.putInt(this.seqNum); //index 4-7
 		temp.putInt(this.ackNum); //index 8-11
