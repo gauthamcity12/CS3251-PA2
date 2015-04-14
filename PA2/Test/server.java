@@ -10,10 +10,10 @@ public class server {
 	private Connection connection; //HashMap<Integer, Connection> connections = new HashMap<>(5);			//THIS MAY NEED TO BE 1 CONNECTION!!!
 	//private static short rcvWind;	
 	private static final int TIMEOUT = 3000;
-	private static final int MAXTRIES = 5;
+	private static final int MAXTRIES = 10;
 	private static Random rand = new Random();
 	private static boolean connectFlag = false;
-	private static int WINDOWSIZE = 5;
+	private static int WINDOWSIZE = 100;
 	private ArrayList<Packet> slidingWindow = new ArrayList<>(WINDOWSIZE);
 	private int lowSeqNum;
 	private int highSeqNum;
@@ -195,11 +195,14 @@ public class server {
 			for (int d = 0; d < WINDOWSIZE; d++) {
 				if (!toSend.isEmpty()) {
 					slidingWindow.add(slidingWindow.size(),toSend.remove(0));
+					slidingWindow.get(d).needToSend();
 				}
 			}
+
 			DatagramPacket genericRcvPacket = new DatagramPacket(new byte[Packet.MAXPACKETSIZE], Packet.MAXPACKETSIZE);
 			Timer timer = new Timer(5000);
-			timer.run();
+			timer.start();
+			System.out.println("initialized and started timer");
 			while (!slidingWindow.isEmpty()) {
 				//fix this
 				Packet temp;
@@ -208,20 +211,26 @@ public class server {
 					for (Packet p : slidingWindow) {
 						p.needToSend();
 					}
-					timer.reset();
-					timer.run();
+					System.out.println("Expired");
+					timer = new Timer(5000);
+					timer.start();
 				}
 				for (Packet p : slidingWindow) {
+					//System.out.println("Checking through sliding window");
 					if (!p.isSent()) {
 						temp = p;
-						temp.setSeqNum(connection.getSeqNum());
-						connection.setSeqNum(connection.getSeqNum() + 1);
+						if (!p.isOld()) {
+							temp.setSeqNum(connection.getSeqNum());
+							connection.setSeqNum(connection.getSeqNum() + 1);
+						}
 						temp.setRcvWind(connection.getRcvWind());
 						temp.recalculateHash();
 						packetToSend = new DatagramPacket(temp.toArray(), temp.toArray().length, connection.getAddress(), connection.getPort());
 						genericRcvPacket = new DatagramPacket(new byte[Packet.MAXPACKETSIZE], Packet.MAXPACKETSIZE);
 						while (!trySend(socket, packetToSend)) {} //RISK OF INFINITE LOOP!!!!!!!!!!
-						verifyAck(packetToSend).packetIsSent();
+						temp.packetIsSent();
+						temp.setOld();
+						//System.out.println(p.getSeqNum());
 					}
 				}
 				if ((tryInitialReceive(socket, genericRcvPacket, connection.getAddress())) && (verifyAck(genericRcvPacket).getACK() == (byte) 1) && (checkHash(genericRcvPacket))) {
@@ -242,6 +251,7 @@ public class server {
 						}
 					}
 				}
+				//System.out.println("CHecking forACK");
 				//Slide window and increment ACKs if necessary
 				while ((slidingWindow.size() < WINDOWSIZE) && (!toSend.isEmpty())) {
 					slidingWindow.add(slidingWindow.size(), toSend.remove(0));
@@ -252,17 +262,19 @@ public class server {
 	}
 
 	public boolean receive(DatagramSocket socket, Connection connection){
-		System.out.println("entering receive");
+		//System.out.println("entering receive");
 		DatagramPacket genericRcvPacket = new DatagramPacket(new byte[Packet.MAXPACKETSIZE], Packet.MAXPACKETSIZE);
-		System.out.println("entering receive 2.0");
+		//System.out.println("entering receive 2.0");
 		if ((tryInitialReceive(socket, genericRcvPacket, connection.getAddress())) && (checkHash(genericRcvPacket))) {
 			System.out.println("passed check 1");
 			while ((verifyAck(genericRcvPacket).getSeqNum() != connection.getAckNum() + 1) || (!checkHash(genericRcvPacket))) {
-				System.out.println("in while loop");
+				System.out.println("in while loop"); //CAN GET IN INFINITE LOOP!!!!!!
 				Packet ACKDataPacket = new Packet(connection.getSessionID(), connection.getSeqNum(), connection.getAckNum(), (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 1, connection.getRcvWind(), new byte[0], 0);
 				DatagramPacket ACKPacket = new DatagramPacket(ACKDataPacket.toArray(), ACKDataPacket.toArray().length, connection.getAddress(), connection.getPort());
 				trySend(socket, ACKPacket, genericRcvPacket, connection.getAddress());
+				connection.setSeqNum(connection.getSeqNum() + 1); //chas //SHOULD WE INCREMENT THIS HERE??????
 			}
+			connection.setAckNum(verifyAck(genericRcvPacket).getSeqNum()); //chas
 			if (verifyAck(genericRcvPacket).getFIN() == (byte) 1) { //client initiated close
 				if (closeReceive(socket, verifyAck(genericRcvPacket))) {
 					connection = null;
@@ -274,19 +286,100 @@ public class server {
 					return true;
 				}
 			} else if (verifyAck(genericRcvPacket).getGET() == (byte) 1) {	//client sends GET request packet
+				System.out.println("\n\n\nRECEIVED A GET REQUEST!!!\n\n\n");
+				int getReqAckNum = verifyAck(genericRcvPacket).getSeqNum();
+				//chas/ connection.setAckNum(getReqAckNum);
 				ArrayList<Packet> toSend = retrieveFile(verifyAck(genericRcvPacket), connection);
+				int sendsize = toSend.size();		//DELETE THIS
+				System.out.println("toSend size: " + sendsize);
+				long totalData = 0;
+				for (Packet p : toSend) {
+					totalData += p.getDataSize();
+					//if (totalData < 20000) {
+						System.out.println(p.getData() + "   POST " + p.getPOST());
+					//}
+					//System.out.print(p.getDataSize() + ", ");
+				}
+				System.out.println();
+				long datasize = toSend.get(0).getDataSize();
+				//long datasize2 = toSend.get(1).getDataSize();
 				while (!toSend.isEmpty()) {
 					Packet temp = toSend.remove(0);
-					temp.setSeqNum(connection.getSeqNum());
-					connection.setSeqNum(connection.getSeqNum() + 1);
-					connection.setAckNum(verifyAck(genericRcvPacket).getSeqNum());
-					temp.setAckNum(connection.getAckNum());
-					temp.setRcvWind(connection.getRcvWind());
-					temp.recalculateHash(); 
-					DatagramPacket packetToSend = new DatagramPacket(temp.toArray(), temp.toArray().length, connection.getAddress(), connection.getPort());
+					for (int d = 0; d < WINDOWSIZE; d++) {
+						if (!toSend.isEmpty()) {
+							slidingWindow.add(slidingWindow.size(),toSend.remove(0));
+							slidingWindow.get(d).needToSend();
+						}
+					}
 					genericRcvPacket = new DatagramPacket(new byte[Packet.MAXPACKETSIZE], Packet.MAXPACKETSIZE);
-					while ((!trySend(socket, packetToSend, genericRcvPacket, connection.getAddress())) || (verifyAck(genericRcvPacket).getACK() != (byte) 1) || (verifyAck(genericRcvPacket).getAckNum() != temp.getSeqNum()) || (!checkHash(genericRcvPacket))) {}
+					Timer timer = new Timer(5000);
+					timer.start();
+					System.out.println("initialized and started timer");
+					while (!slidingWindow.isEmpty()) {
+						//fix this
+						temp = null;
+						DatagramPacket packetToSend;
+						if (expired) { //timeout expired
+							for (Packet p : slidingWindow) {
+								p.needToSend();
+							}
+							System.out.println("Expired"); //CAN GET IN INFINITE LOOP!!!!!!
+							timer.reset();
+							timer = new Timer(5000); //THIS IS NOT GOOD...LOTS OF TIMERS EVENTUALLY EXPIRE!!!
+							timer.start();
+						}
+						for (Packet p : slidingWindow) {
+							//System.out.println("Checking through sliding window");
+							if (!p.isSent()) {
+								temp = p;
+								if (!p.isOld()) {
+									temp.setSeqNum(connection.getSeqNum());
+									connection.setSeqNum(connection.getSeqNum() + 1);
+								}
+								temp.setAckNum(connection.getAckNum());
+								temp.setRcvWind(connection.getRcvWind());
+								temp.recalculateHash();
+								packetToSend = new DatagramPacket(temp.toArray(), temp.toArray().length, connection.getAddress(), connection.getPort());
+								genericRcvPacket = new DatagramPacket(new byte[Packet.MAXPACKETSIZE], Packet.MAXPACKETSIZE);
+								while (!trySend(socket, packetToSend)) {} //RISK OF INFINITE LOOP!!!!!!!!!!
+								temp.packetIsSent();
+								temp.setOld();
+								//System.out.println(p.getSeqNum());
+							}
+						}
+						if ((tryInitialReceive(socket, genericRcvPacket, connection.getAddress())) && (verifyAck(genericRcvPacket).getACK() == (byte) 1) && (checkHash(genericRcvPacket))) {
+							//SHOULD WE UPDATE THE CONNECTION ACK NUMBER HERE???????????
+							int incomingAck = verifyAck(genericRcvPacket).getAckNum();
+							int b = 1;
+							for (Packet p : slidingWindow) {
+								if (incomingAck < p.getSeqNum()) {
+									b = -1;
+									break;
+								} else if (incomingAck == p.getSeqNum()) {
+									break;
+								}
+								b++;
+							}
+							if (b > 0) {
+								for (; b > 0; b--) {
+									slidingWindow.remove(0);
+								}
+							}
+						}
+						//System.out.println("CHecking forACK");
+						//Slide window and increment ACKs if necessary
+						while ((slidingWindow.size() < WINDOWSIZE) && (!toSend.isEmpty())) {
+							slidingWindow.add(slidingWindow.size(), toSend.remove(0));
+							System.out.println(slidingWindow.get(slidingWindow.size() - 1).getData() + "  G: " + slidingWindow.get(slidingWindow.size() - 1).getGET() + "  P: " + slidingWindow.get(slidingWindow.size() - 1).getPOST() + "  F: " + slidingWindow.get(slidingWindow.size() - 1).getFIN() + "  S: " + slidingWindow.get(slidingWindow.size() - 1).getSYN() + "  A: " + slidingWindow.get(slidingWindow.size() - 1).getACK());
+						}
+					}
 				}
+				System.out.println("\n\n\n\n\ntoSend size: " + sendsize);
+				System.out.println("toSend actualsize: " + toSend.size());
+				System.out.println("ds0: " + datasize);
+				//System.out.println("ds1: " + datasize2);
+				System.out.println("TD: " + totalData);
+				System.out.println("window size: " + slidingWindow.size() + "\n\n\n\n\n\n\n");
 				return true;
 			} else if (verifyAck(genericRcvPacket).getPOST() == (byte) 1) {	//client sends POST data packet
 				System.out.println("received POST");
@@ -301,7 +394,7 @@ public class server {
 				return downloadPostedFile(filename, ACKPacket, connection, socket);
 			}
 		}
-		System.out.println("did not pass check 1");
+		//System.out.println("did not pass check 1");
 		/*
 		 * if received ACK											//SHOULD ACK PACKETS HAVE A SEQ NUM AND BE ADDED TO THE WINDOW???
 		 * 		check ACK against expected number and the window	//SHOULD WE ACK AND RESPOND OR SIMPLY RESPOND TO THINGS LIKE GET???
@@ -558,7 +651,7 @@ public class server {
 	}
 	
 	private static boolean tryInitialReceive(DatagramSocket socket, DatagramPacket rcvP, InetAddress address) {
-		System.out.println("initial receive");
+		//System.out.println("initial receive");
 		try {
 			socket.setSoTimeout(100);
 			socket.receive(rcvP);
